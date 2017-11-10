@@ -1,7 +1,7 @@
 #! /usr/bin/env %PY_BIN%
 # -*-python-*-
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(
     name="%MDP_NAME%",
@@ -9,7 +9,13 @@ setup(
     author="Joel Rosdahl",
     author_email="joel@rosdahl.net",
     license="GNU GPL 2.0",
-    scripts=["maildirproc"],
+    entry_points={
+      'console_scripts': [
+        'maildirproc=maildirproc.cmd.maildir:main',
+        'imapproc=maildirproc.cmd.imap:main'
+        ]
+    },
+    packages=find_packages(),
     platforms="platform-independent",
     url="http://joel.rosdahl.net/maildirproc/",
     description="maildir processor using Python %PY_VER% as its configuration language",
