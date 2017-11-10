@@ -17,6 +17,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
+import os
 import shutil
 import subprocess
 
@@ -141,6 +142,13 @@ class MaildirMail(MailBase):
 
         if delete:
             self._delete()
+
+    def is_seen(self):
+        flags = self._get_flagpart()
+        if 'S' in flags:
+            return True
+        else:
+            return False
 
     def _get_flagpart(self):
         parts = os.path.basename(self.path).split(":2,")
