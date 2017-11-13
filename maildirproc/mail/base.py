@@ -28,10 +28,8 @@ class MailBase(object):
     own class for representing email messages you should inherit this class and
     implement the methods it mandates.
     """
-    def __init__(self, processor, maildir, mail_path):
+    def __init__(self, processor, **kwargs):
         self._processor = processor
-        self._maildir = maildir
-        self._path = mail_path
         self._target = MailTarget(self)
         self._headers = {}
         if self.parse_mail():
