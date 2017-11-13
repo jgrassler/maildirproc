@@ -21,9 +21,27 @@ import os
 import shutil
 import subprocess
 
+from email import errors as email_errors
+from email import header as email_header
+from email import parser as email_parser
+
 from maildirproc.mail.base import MailBase
+from maildirproc.util import iso_8601_now
 
 class MaildirMail(MailBase):
+    def __init__(self, processor, **kwargs):
+        self._maildir = kwargs['maildir']
+        self._path = kwargs['mail_path']
+        super(MaildirMail, self).__init__(processor, **kwargs)
+
+    @property
+    def maildir(self):
+        return self._maildir
+
+    @property
+    def path(self):
+        return self._path
+
     def copy(self, maildir):
         self._processor.log("==> Copying to {0}".format(maildir))
         self._copy(maildir)
@@ -47,6 +65,45 @@ class MaildirMail(MailBase):
             self.path.split(os.sep)[-2],  # new/cur
             self._processor.create_maildir_name() + flagpart)
         self._processor.rename(self.path, target)
+
+    def parse_mail(self):
+        # We'll just use some encoding that handles all byte values
+        # without bailing out. Non-ASCII characters should not exist
+        # in the headers according to email standards, but if they do
+        # anyway, we mustn't crash.
+        encoding = "iso-8859-1"
+
+        self._processor.log("")
+        self._processor.log("New mail detected at {0}:".format(iso_8601_now()))
+        self._processor.log("Path:       {0}".format(ascii(self.path)))
+        try:
+            fp = open(self.path, encoding=encoding)
+        except IOError as e:
+            # The file was probably (re)moved by some other process.
+            self._processor.log_mail_opening_error(self.path, e)
+            return False
+        headers = email_parser.Parser().parse(fp, headersonly=True)
+        fp.close()
+        for name in headers.keys():
+            value_parts = []
+            for header in headers.get_all(name, []):
+                try:
+                    for (s, c) in email_header.decode_header(header):
+                        # email.header.decode_header in Python 3.x may
+                        # return either [(str, None)] or [(bytes,
+                        # None), ..., (bytes, encoding)]. We must
+                        # compensate for this.
+                        if not isinstance(s, str):
+                            s = s.decode(c if c else "ascii")
+                        value_parts.append(s)
+                except (email_errors.HeaderParseError, LookupError,
+                        ValueError):
+                    self._processor.log_error(
+                        "Error: Could not decode header {0}".format(
+                            ascii(header)))
+                    value_parts.append(header)
+            self._headers[name.lower()] = " ".join(value_parts)
+        return True
 
     # ----------------------------------------------------------------
 
@@ -156,3 +213,4 @@ class MaildirMail(MailBase):
             return ":2," + parts[1]
         else:
             return ""
+

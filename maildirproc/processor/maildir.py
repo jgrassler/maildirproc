@@ -87,7 +87,8 @@ class MaildirProcessor(MailProcessor):
                             mtime_map[subdir_path] = cur_mtime
                         for mail_file in os.listdir(subdir_path):
                             mail_path = os.path.join(subdir_path, mail_file)
-                            yield self._mail_class(self, maildir, mail_path)
+                            yield self._mail_class(self, maildir=maildir,
+                                                         mail_path=mail_path)
             if self._run_once:
                 break
             time.sleep(1)

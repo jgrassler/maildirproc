@@ -18,37 +18,29 @@
 # 02110-1301, USA.
 
 import sys
-from email import errors as email_errors
-from email import header as email_header
-from email import parser as email_parser
-
 
 if sys.version_info[0] < 3:
     from maildirproc.util import ascii
 
-from maildirproc.util import iso_8601_now
 from maildirproc.util import sha1sum
 
 from maildirproc.mail.target import MailTarget
 from maildirproc.mail.header import MailHeader
 
 class MailBase(object):
+    """
+    This is the base class representing email messages. If you want to create your
+    own class for representing email messages you should inherit this class and
+    implement the methods it mandates.
+    """
     def __init__(self, processor, maildir, mail_path):
         self._processor = processor
         self._maildir = maildir
         self._path = mail_path
         self._target = MailTarget(self)
         self._headers = {}
-        if self._parse_mail():
+        if self.parse_mail():
             self._log_processing()
-
-    @property
-    def maildir(self):
-        return self._maildir
-
-    @property
-    def path(self):
-        return self._path
 
     @property
     def processor(self):
@@ -75,6 +67,103 @@ class MailBase(object):
             "... Mail is not on mailing list {0}".format(list_name))
         return False
 
+    ### Methods to implement ###
+
+    def copy(self, folder):
+        """
+        Copy the message to a folder.
+
+        The notion of what constitutes a folder depends on what your email
+        messages are stored in. It may for example be a maildir, an mbox file or
+        an IMAP folder.
+
+        @folder: the destination folder to copy the message to.
+        """
+
+        message = ("You need to implement a copy() method in your "
+                   "MailBase subclass.")
+        raise NotImplementedError(message)
+
+    def delete(self):
+        """
+        Deletes a message.
+        """
+
+        message = ("You need to implement a delete() method in your "
+                   "MailBase subclass.")
+        raise NotImplementedError(message)
+
+    def forward(self, addresses, env_sender=None):
+        """
+        Forwards a message.
+
+        This method forwards a message to one or more email addresses. The
+        original message will be deleted.
+
+        @addresses: list of email addresses to forward the message to.
+        @env_sender: the envelope sender address to use when forwarding the
+                     message.
+        """
+
+        message = ("You need to implement a forward() method in your "
+                   "MailBase subclass.")
+        raise NotImplementedError(message)
+
+    def forward_copy(self, addresses, env_sender=None):
+        """
+        Forwards a copy of a message.
+
+        This method forwards a message to one or more email addresses. The
+        original message will remain in place.
+
+        @addresses: list of email addresses to forward the message to.
+        @env_sender: the envelope sender address to use when forwarding the
+                     message.
+        """
+
+        message = ("You need to implement a forward_copy() method in your "
+                   "MailBase subclass.")
+        raise NotImplementedError(message)
+
+    def move(self, folder):
+        """
+        Move the message to a folder.
+
+        The notion of what constitutes a folder depends on what your email
+        messages are stored in. It may for example be a maildir, an mbox file or
+        an IMAP folder.
+
+        @folder: the destination folder to move the message to.
+        """
+        message = ("You need to implement a move() method in your "
+                   "MailBase subclass.")
+        raise NotImplementedError(message)
+
+    def parse_mail(self):
+        """
+        Parse and store message headers.
+
+        This method will parse an email's headers and store them in the
+        self._headers dict. Keys are header names converted to lower case,
+        values are these header's contents.
+        """
+        message = ("You need to implement a parse_mail() method in your "
+                   "MailBase subclass.")
+        raise NotImplementedError(message)
+
+    def is_seen(self):
+        """
+        Check whether a message has been read.
+
+        This method returns True if a message has been read by the user, False
+        otherwise. What constitutes having been read (commonly some sort of
+        flag) is left up to the subclass' implementation.
+        """
+
+        message = ("You need to implement a parse_mail() method in your "
+                   "MailBase subclass.")
+        raise NotImplementedError(message)
+
     # ----------------------------------------------------------------
 
     def _log_processing(self):
@@ -88,43 +177,3 @@ class MailBase(object):
         for name in "Message-ID Subject Date From To Cc".split():
             self._processor.log(
                 "{0:<11} {1}".format(name + ":", ascii(self[name])))
-
-    def _parse_mail(self):
-        # We'll just use some encoding that handles all byte values
-        # without bailing out. Non-ASCII characters should not exist
-        # in the headers according to email standards, but if they do
-        # anyway, we mustn't crash.
-        encoding = "iso-8859-1"
-
-        self._processor.log("")
-        self._processor.log("New mail detected at {0}:".format(iso_8601_now()))
-        self._processor.log("Path:       {0}".format(ascii(self.path)))
-        try:
-            fp = open(self.path, encoding=encoding)
-        except IOError as e:
-            # The file was probably (re)moved by some other process.
-            self._processor.log_mail_opening_error(self.path, e)
-            return False
-        headers = email_parser.Parser().parse(fp, headersonly=True)
-        fp.close()
-        for name in headers.keys():
-            value_parts = []
-            for header in headers.get_all(name, []):
-                try:
-                    for (s, c) in email_header.decode_header(header):
-                        # email.header.decode_header in Python 3.x may
-                        # return either [(str, None)] or [(bytes,
-                        # None), ..., (bytes, encoding)]. We must
-                        # compensate for this.
-                        if not isinstance(s, str):
-                            s = s.decode(c if c else "ascii")
-                        value_parts.append(s)
-                except (email_errors.HeaderParseError, LookupError,
-                        ValueError):
-                    self._processor.log_error(
-                        "Error: Could not decode header {0}".format(
-                            ascii(header)))
-                    value_parts.append(header)
-            self._headers[name.lower()] = " ".join(value_parts)
-        return True
-
