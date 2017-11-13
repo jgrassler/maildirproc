@@ -19,11 +19,6 @@
 
 import sys
 
-if sys.version_info[0] < 3:
-    from maildirproc.util import ascii
-
-from maildirproc.util import sha1sum
-
 from maildirproc.mail.target import MailTarget
 from maildirproc.mail.header import MailHeader
 
@@ -165,15 +160,3 @@ class MailBase(object):
         raise NotImplementedError(message)
 
     # ----------------------------------------------------------------
-
-    def _log_processing(self):
-        try:
-            fp = open(self.path, "rb")
-        except IOError as e:
-            # The file was probably (re)moved by some other process.
-            self._processor.log_mail_opening_error(self.path, e)
-            return
-        self._processor.log("SHA1:       {0}".format(ascii(sha1sum(fp))))
-        for name in "Message-ID Subject Date From To Cc".split():
-            self._processor.log(
-                "{0:<11} {1}".format(name + ":", ascii(self[name])))

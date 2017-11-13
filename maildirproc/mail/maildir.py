@@ -27,6 +27,7 @@ from email import parser as email_parser
 
 from maildirproc.mail.base import MailBase
 from maildirproc.util import iso_8601_now
+from maildirproc.util import sha1sum
 
 class MaildirMail(MailBase):
     def __init__(self, processor, **kwargs):
@@ -214,3 +215,15 @@ class MaildirMail(MailBase):
         else:
             return ""
 
+
+    def _log_processing(self):
+        try:
+            fp = open(self.path, "rb")
+        except IOError as e:
+            # The file was probably (re)moved by some other process.
+            self._processor.log_mail_opening_error(self.path, e)
+            return
+        self._processor.log("SHA1:       {0}".format(ascii(sha1sum(fp))))
+        for name in "Message-ID Subject Date From To Cc".split():
+            self._processor.log(
+                "{0:<11} {1}".format(name + ":", ascii(self[name])))
