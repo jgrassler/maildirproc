@@ -158,8 +158,9 @@ def main():
 
     rcfile = os.path.expanduser(options.rcfile)
     processor = MaildirProcessor(
-        rcfile, log_fp, log_level, options.dry_run, options.once,
-        options.auto_reload_rcfile)
+        rcfile=rcfile, log_fp=log_fp, log_level=log_level,
+        dry_run=options.dry_run, run_once=options.once,
+        auto_reload_rcfile=options.auto_reload_rcfile)
     processor.log("")
     processor.log(
         "Starting maildirproc {0} at {1}".format(

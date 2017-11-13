@@ -32,24 +32,29 @@ from maildirproc.mail.maildir import MaildirMail
 
 class MailProcessor(object):
     def __init__(
-            self, rcfile, log_fp, log_level=1, dry_run=False, run_once=False,
-            auto_reload_rcfile=False):
+            self, rcfile, log_fp, **kwargs):
+
+        defaults = {
+          'log_level': 1,
+          'dry_run': False,
+          'run_once': False,
+          'auto_reload_rcfile': False
+          }
+
+        for key in defaults:
+            if key not in kwargs:
+                kwargs[key] = defaults[key]
+
         self._rcfile = rcfile
         self._log_fp = log_fp
-        self._log_level = log_level
-        self._run_once = run_once or dry_run
-        self._auto_reload_rcfile = auto_reload_rcfile
-        self._maildir_base = None
+        self._log_level = kwargs['log_level']
+        self._run_once = kwargs['run_once'] or kwargs['dry_run']
+        self._auto_reload_rcfile = kwargs['auto_reload_rcfile']
         self._deliveries = 0
-        self._maildirs = []
         self._sendmail = "/usr/sbin/sendmail"
         self._sendmail_flags = "-i"
         self.rcfile_modified = False
         self._previous_rcfile_mtime = self._get_previous_rcfile_mtime()
-        if dry_run:
-            self._mail_class = DryRunMail
-        else:
-            self._mail_class = MaildirMail
 
     def get_auto_reload_rcfile(self):
         return self._auto_reload_rcfile
@@ -69,22 +74,6 @@ class MailProcessor(object):
         else:
             self._log_fp = path_or_fp
     logfile = property(fset=set_logfile)
-
-    def get_maildir_base(self):
-        return self._maildir_base
-
-    def set_maildir_base(self, path):
-        self._maildir_base = os.path.expanduser(path)
-
-    maildir_base = property(get_maildir_base, set_maildir_base)
-
-    def get_maildirs(self):
-        return self._maildirs
-
-    def set_maildirs(self, maildirs):
-        self._maildirs = maildirs
-
-    maildirs = property(get_maildirs, set_maildirs)
 
     @property
     def rcfile(self):
@@ -107,37 +96,9 @@ class MailProcessor(object):
     sendmail_flags = property(get_sendmail_flags, set_sendmail_flags)
 
     def __iter__(self):
-        if not self._maildirs:
-            self.fatal_error("Error: No maildirs to process")
-
-        self.rcfile_modified = False
-        mtime_map = {}
-        while True:
-            if self.auto_reload_rcfile:
-                current_rcfile_mtime = self._get_previous_rcfile_mtime()
-                if current_rcfile_mtime != self._previous_rcfile_mtime:
-                    self._previous_rcfile_mtime = current_rcfile_mtime
-                    self.rcfile_modified = True
-                    self.log_info("Detected modified RC file; reloading")
-                    break
-            for maildir in self._maildirs:
-                maildir_path = os.path.join(self._maildir_base, maildir)
-                for subdir in ["cur", "new"]:
-                    subdir_path = os.path.join(maildir_path, subdir)
-                    cur_mtime = os.path.getmtime(subdir_path)
-                    if cur_mtime != mtime_map.setdefault(subdir_path, 0):
-                        if cur_mtime < int(time.time()):
-                            # If cur_mtime == int(time.time()) we
-                            # can't be sure that everything has been
-                            # processed; a new mail may be delivered
-                            # later the same second.
-                            mtime_map[subdir_path] = cur_mtime
-                        for mail_file in os.listdir(subdir_path):
-                            mail_path = os.path.join(subdir_path, mail_file)
-                            yield self._mail_class(self, maildir, mail_path)
-            if self._run_once:
-                break
-            time.sleep(1)
+        message = ("You need to implement an __iter__ operation in your actual "
+                   "processor class")
+        raise NotImplementedError(message)
 
     def log(self, text, level=1):
         if level <= self._log_level:
@@ -158,41 +119,10 @@ class MailProcessor(object):
         safe_write(sys.stderr, text)
         sys.exit(1)
 
-    # ----------------------------------------------------------------
-    # Interface used by MailBase and descendants:
-
-    def create_maildir_name(self):
-        """Create and return a unique name for a Maildir message."""
-        hostname = socket.gethostname()
-        hostname = hostname.replace("/", "\\057")
-        hostname = hostname.replace(":", "\\072")
-        now = time.time()
-        delivery_identifier = "M{0}P{1}Q{2}R{3:0>8x}".format(
-            round((now - int(now)) * 1000000),
-            os.getpid(),
-            self._deliveries,
-            random.randint(0, 0xffffffff))
-        self._deliveries += 1
-        return "{0}.{1}.{2}".format(now, delivery_identifier, hostname)
-
-    def log_io_error(self, errmsg, os_errmsg):
-        self.log_error(
-            "Error: {0} (error message from OS: {1})".format(
-                errmsg, os_errmsg))
-
-    def log_mail_opening_error(self, path, errmsg):
-        self.log_io_error(
-            "Could not open {0}; some other process probably (re)moved"
-            " it".format(path),
-            errmsg)
-
     def rename(self, source, target):
-        try:
-            os.rename(source, target)
-        except OSError as e:
-            self.log_error(
-                "Error: Could not rename {0} to {1}: {2}".format(
-                    source, target, e))
+        message = ("You need to implement renaming operations in your actual "
+                   "processor class")
+        raise NotImplementedError(message)
 
     # ----------------------------------------------------------------
     # Private methods:
