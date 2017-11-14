@@ -47,6 +47,7 @@ class MailProcessor(object):
 
         self._rcfile = rcfile
         self._log_fp = log_fp
+        print("setting log level to %s" % kwargs['log_level'])
         self._log_level = kwargs['log_level']
         self._run_once = kwargs['run_once'] or kwargs['dry_run']
         self._auto_reload_rcfile = kwargs['auto_reload_rcfile']
@@ -109,13 +110,23 @@ class MailProcessor(object):
         self.log(text, 2)
 
     def log_error(self, text):
-        self.log(text, 0)
+        try:
+            self.log(text, 0)
+        except:
+            # Make sure the message gets out even if writing to the log file
+            # fails.
+            safe_write(sys.stderr, text)
 
     def log_info(self, text):
         self.log(text, 1)
 
     def fatal_error(self, text):
-        self.log_error(text)
+        try:
+            self.log_error(text)
+        except:
+            # Make sure the message gets out even if writing to the log file
+            # fails.
+            pass
         safe_write(sys.stderr, text)
         sys.exit(1)
 
