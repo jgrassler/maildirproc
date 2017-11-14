@@ -21,6 +21,7 @@ import locale
 import os
 import random
 import socket
+import ssl
 import sys
 import time
 import imaplib
@@ -29,32 +30,44 @@ from maildirproc.util import iso_8601_now
 from maildirproc.util import safe_write
 
 from maildirproc.mail.dryrun import DryRunMail
-from maildirproc.processor.generic import ImapMail
+from maildirproc.mail.imap import ImapMail
+from maildirproc.processor.generic import MailProcessor
 
 class ImapProcessor(MailProcessor):
     def __init__(self, *args, **kwargs):
         self._folders = []
 
-        imap_params = {}
-
         if 'interval' in kwargs:
            self.interval = kwargs['interval']
   
-        for key in ('host', 'port'):
-            if key in kwargs:
-                imap_params[key] = kwargs[key]
+        if kwargs['port'] == None:
+            kwargs['port'] = 143
 
         if kwargs['use_ssl']:
+            if kwargs['port'] == None:
+                kwargs['port'] = 993
             ssl_context = ssl.SSLContext()
             if 'certfile' in kwargs:
                 ssl_context.load_cert_chain(kwargs['certfile'])
             else:
                 ssl_context.create_default_context()
 
-            imap_params['ssl_context'] = ssl_context
-            self.imap = imaplib.IMAP4_SSL(imap_params)
+            try:
+                self.imap = imaplib.IMAP4_SSL(host=kwargs['host'], 
+                                              port=kwargs['port'],
+                                              sl_context=ssl_context)
+            except Exception as e:
+                self.fatal_error("Couldn't connect to IMAP server "
+                                 "imaps://%s:%d: %s" % ( kwargs['host'],
+                                                         kwargs['port'], e))
         else:
-            self.imap = imaplib.IMAP4(imap_params)
+            try:
+                self.imap = imaplib.IMAP4(host=kwargs['host'], port=kwargs['port'])
+            except Exception as e:
+                self.fatal_error("Couldn't connect to IMAP server "
+                                 "imap://%s:%d: %s" % ( kwargs['host'],
+                                                        kwargs['port'], e))
+
 
         if 'dry_run' in kwargs and kwargs['dry_run'] is True:
             self._mail_class = DryRunMail
