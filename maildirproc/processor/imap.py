@@ -71,7 +71,23 @@ class ImapProcessor(MailProcessor):
 
     folders = property(get_folders, set_folders)
 
+    # ----------------------------------------------------------------
+    # Interface used by MailBase and descendants:
+
+
+    def log_imap_error(self, operation, errmsg):
+        self.log_error(
+            "IMAP Error: {0} failed: {1}".format(
+                errmsg, errmsg))
+    # ----------------------------------------------------------------
+
     def list_messages(self, folder):
+        self.imap.select(mailbox=folder)
+        ret, data = self.imap.search(None, "ALL")
+        if ret != 'OK':
+            log_imap_error("Listing messages in folder %s failed: %s" % (folder, ret))
+            return []
+        return data[0].split()
 
     def __iter__(self):
         if not self._folders:
@@ -89,21 +105,12 @@ class ImapProcessor(MailProcessor):
                     break
 
             for folder in self.folders:
-                for message in list_messages(folder)
-                    yield self._mail_class(self, folder=folder)
+                for message in list_messages(folder):
+                    yield self._mail_class(self, folder=folder, uid=message)
 
             if self._run_once:
                 break
             time.sleep(self.interval)
-
-    # ----------------------------------------------------------------
-    # Interface used by MailBase and descendants:
-
-
-    def log_imap_error(self, operation, errmsg):
-        self.log_error(
-            "IMAP Error: {0} failed: {1}".format(
-                errmsg, errmsg))
 
     def rename(self, uid, target_folder):
         try:
