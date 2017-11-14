@@ -138,7 +138,8 @@ class MailBase(object):
 
         This method will parse an email's headers and store them in the
         self._headers dict. Keys are header names converted to lower case,
-        values are these header's contents.
+        values are these header's contents. Returns True upon success, False
+        upon failure.
         """
         message = ("You need to implement a parse_mail() method in your "
                    "MailBase subclass.")
