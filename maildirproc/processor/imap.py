@@ -112,12 +112,3 @@ class ImapProcessor(MailProcessor):
                 break
             time.sleep(self.interval)
 
-    def rename(self, uid, target_folder):
-        try:
-            self.imap.copy(uid, target_folder)
-            self.imap.store(uid, '+FLAGS', '\\Deleted')
-            self.imap.expunge()
-        except self.imap.error as e:
-            self.fatal_error(
-                "Error: Could not rename {0} to {1}: {2}".format(
-                    source, target, e))

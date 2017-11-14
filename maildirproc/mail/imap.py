@@ -17,21 +17,22 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
-import os
-import shutil
 import subprocess
+import sys
 
 from email import errors as email_errors
 from email import header as email_header
 from email import parser as email_parser
 
 from maildirproc.mail.base import MailBase
-from maildirproc.util import iso_8601_now
-from maildirproc.util import sha1sum
+
+if sys.version_info[0] < 3:
+    from maildirproc.util import ascii
 
 class ImapMail(MailBase):
     def __init__(self, processor, **kwargs):
         self._uid = kwargs['uid']
+        self.message_flags = tuple()
         super(ImapMail, self).__init__(processor, **kwargs)
 
     @property
@@ -39,45 +40,102 @@ class ImapMail(MailBase):
         return self._uid
 
     def copy(self, folder):
-        self._processor.log("==> Copying to {0}".format(folder))
-        self._copy(maildir)
+        self._processor.log("==> Copying {0} to {1}".format(self.uid, folder))
+        try:
+            self._processor.imap.copy(uid, folder)
+        except self._processor.imap.error as e:
+            self._processor.log_imap_error("Copying message UID %s to %s "
+                                           " failed: %s" % (self.uid, folder, e))
+            raise
 
     def delete(self):
-        self._processor.log("==> Deleting %s" % self.uid)
-        self._delete()
+        try:
+            self._processor.log("==> Deleting %s" % self.uid)
+            self._processor.imap.store(self.uid, '+FLAGS', '\\Deleted')
+            self._processor.imap.expunge()
+        except self._processor.imap.error as e:
+            # Fail hard because repeated failures here can leave a mess of
+            # messages with `Deleted` flags.
+            self._processor.log_imap_error(
+                "Error: Could not delete message {0} {1}: {2}".format(
+                    source, target, e))
+            raise
 
-    def forward(self, addresses, env_sender=None):
-        self._forward(True, addresses, env_sender)
+    def forward(self, addresses, env_sender, delete=True):
+        if isinstance(addresses, basestring):
+            addresses = [addresses]
+        else:
+            addresses = list(addresses)
+        if delete:
+            copy = ""
+        else:
+            copy = " copy"
+        flags = self._processor.sendmail_flags
+        if env_sender is not None:
+            flags += " -f {0}".format(env_sender)
+
+        self._processor.log(
+            "==> Forwarding{0} to {1!r}".format(copy, addresses))
+        try:
+            ret, msg = self._processor.fetch(self.uid, "RFC822")
+        except self._processor.error as e:
+						# Fail soft, since we haven't changed any mailbox state or forwarded
+            # anything, yet. Hence we might as well retry later.
+            self._processor.log_imap_error(
+                "Error forwarding: Could not retrieve message UID {0}: {1}"
+                "{1}".format(uid, e))
+            return
+
+        p = subprocess.Popen(
+            "{0} {1} -- {2}".format(
+                self._processor.sendmail,
+                flags,
+                " ".join(addresses)
+                ),
+            shell=True,
+            stdin=subprocess.PIPE)
+
+        p.stdin.write(msg)
+        p.stdin.close()
+        sendmail_status = p.wait()
+
+        if sendmail_status != 0:
+            self._processor.log_error("Forwarding message failed: %s "
+                                      "exited %d" % (self._processor.sendmail,
+                                                     sendmail_status))
+            return
+
+        if delete:
+            self.delete()
 
     def forward_copy(self, addresses, env_sender=None):
-        self._forward(False, addresses, env_sender)
+        self.forward(addresses, env_sender, delete=False)
 
     def move(self, folder):
-        self._processor.log("==> Moving UID {0} to {1}".format(self.uid,
-                                                               folder))
-        self._processor.rename(self.uid, target)
+        self._processor.log("==> Moving UID {0} to {1}".format(self.uid, folder))
+        self.copy(folder)
+        self.delete()
 
     def parse_mail(self):
-        # We'll just use some encoding that handles all byte values
-        # without bailing out. Non-ASCII characters should not exist
-        # in the headers according to email standards, but if they do
-        # anyway, we mustn't crash.
-        encoding = "iso-8859-1"
-
         self._processor.log("")
-        self._processor.log("New mail detected with UID {0}:".format(self.uuid))
+        self._processor.log("New mail detected with UID {0}:".format(self.uid))
 
         try:
-            ret, data = self._processor.fetch(self.uid, "BODY.PEEK[HEADER]")
+            ret, data = self._processor.fetch(self.uid, "BODY.PEEK[HEADER] FLAGS")
         except self._processor.imap.error as e:
             # Anything imaplib raises an exception for is fatal.
             self._processor.fatal_error("Error retrieving message "
                                         "with UID %s: %s" % self.uid, e)
-       if ret != True:
-           self._processor.log_error(
-               "Error: Could not retrieve message {0}: {1}".format(self.uid,
-                                                                   ret)
-           return False
+        if ret != True:
+            self._processor.log_error(
+                "Error: Could not retrieve message {0}: {1}".format(self.uid,
+                                                                    ret))
+            return False
+
+        self.message_flags = self._processor.imap.ParseFlags(data)
+
+        # Remove flags so they do not interfere with header parsing
+        data = self._processor.imap.Flags.sub(data)
 
         headers = email_parser.Parser().parsestr(data, headersonly=True)
 
@@ -104,18 +162,11 @@ class ImapMail(MailBase):
 
     # ----------------------------------------------------------------
 
-    def _copy(self, folder):
-
-    def _delete(self):
-
-    def _forward(self, delete, addresses, env_sender):
-
     def is_seen(self):
-
-    def _get_flagpart(self):
+        return '\Seen' in self.message_flags
 
     def _log_processing(self):
-        self._processor.log("UID:       {0}".format(self.uid)))
+        self._processor.log("UID:       {0}".format(self.uid))
         for name in "Message-ID Subject Date From To Cc".split():
             self._processor.log(
                 "{0:<11} {1}".format(name + ":", ascii(self[name])))
