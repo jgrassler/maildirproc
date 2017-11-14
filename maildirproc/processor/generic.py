@@ -119,11 +119,6 @@ class MailProcessor(object):
         safe_write(sys.stderr, text)
         sys.exit(1)
 
-    def rename(self, source, target):
-        message = ("You need to implement renaming operations in your actual "
-                   "processor class")
-        raise NotImplementedError(message)
-
     # ----------------------------------------------------------------
     # Private methods:
 
