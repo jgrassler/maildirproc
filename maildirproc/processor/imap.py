@@ -154,7 +154,11 @@ class ImapProcessor(MailProcessor):
 
     def list_messages(self, folder):
         self._select(folder)
-        ret, data = self.imap.search(None, "ALL")
+        try:
+            ret, data = self.imap.uid('search', None, "ALL")
+        except self.imap.error as e:
+            self.fatal_error("Listing messages in folder %s "
+                             "failed: %s" % (folder, e))
         if ret != 'OK':
             self.log_imap_error("Listing messages in folder %s failed: %s" % (folder,
                                                                               ret))

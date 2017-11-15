@@ -44,7 +44,7 @@ class ImapMail(MailBase):
     def copy(self, folder, create=False):
         self._processor.log("==> Copying {0} to {1}".format(self.uid, folder))
         try:
-            status, data = self._processor.imap.copy(self.uid, folder)
+            status, data = self._processor.imap.uid('copy', self.uid, folder)
         except self._processor.imap.error as e:
             self._processor.fatal_imap_error("Copying message UID %s to %s "
                                            % (self.uid, folder), e)
@@ -65,7 +65,7 @@ class ImapMail(MailBase):
     def delete(self):
         try:
             self._processor.log("==> Deleting %s" % self.uid)
-            self._processor.imap.store(self.uid, '+FLAGS', '\\Deleted')
+            self._processor.imap.uid('store', self.uid, '+FLAGS', '\\Deleted')
             self._processor.imap.expunge()
         except self._processor.imap.error as e:
             # Fail hard because repeated failures here can leave a mess of
@@ -91,7 +91,7 @@ class ImapMail(MailBase):
         self._processor.log(
             "==> Forwarding{0} to {1!r}".format(copy, addresses))
         try:
-            ret, msg = self._processor.imap.fetch(self.uid, "RFC822")
+            ret, msg = self._processor.imap.uid('fetch', self.uid, "RFC822")
         except self._processor.imap.error as e:
 						# Fail soft, since we haven't changed any mailbox state or forwarded
             # anything, yet. Hence we might as well retry later.
@@ -135,8 +135,8 @@ class ImapMail(MailBase):
         self._processor.log("New mail detected with UID {0}:".format(self.uid))
 
         try:
-            ret, data = self._processor.imap.fetch(self.uid,
-                                                   "(BODY.PEEK[HEADER] FLAGS)")
+            ret, data = self._processor.imap.uid('fetch', self.uid,
+                                                 "(BODY.PEEK[HEADER] FLAGS)")
         except self._processor.imap.error as e:
             # Anything imaplib raises an exception for is fatal here.
             self._processor.fatal_error("Error retrieving message "
