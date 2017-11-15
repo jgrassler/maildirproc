@@ -18,6 +18,7 @@
 # 02110-1301, USA.
 
 import imaplib
+import re
 import subprocess
 import sys
 
@@ -40,14 +41,27 @@ class ImapMail(MailBase):
     def uid(self):
         return self._uid
 
-    def copy(self, folder):
+    def copy(self, folder, create=False):
         self._processor.log("==> Copying {0} to {1}".format(self.uid, folder))
         try:
-            self._processor.imap.copy(self.uid, folder)
+            status, data = self._processor.imap.copy(self.uid, folder)
         except self._processor.imap.error as e:
             self._processor.log_imap_error("Copying message UID %s to %s "
                                            " failed: %s" % (self.uid, folder, e))
             raise
+        if status == 'NO':
+            if create and 'TRYCREATE' in data[0].decode('ascii'):
+                self._processor.log("==> Destination folder %s does not exist, "
+                                    "creating." % folder)
+                self._processor.create_folder(folder)
+            else:
+                self._processor.fatal_error("Destination folder %s does not "
+                                            "exist and I am not supposed to "
+                                            "create folders. Please use "
+                                            "move() or copy() with "
+                                            "create=True to automtically "
+                                            "create nonexistent "
+                                            "folders." % folder)
 
     def delete(self):
         try:
@@ -112,9 +126,9 @@ class ImapMail(MailBase):
     def forward_copy(self, addresses, env_sender=None):
         self.forward(addresses, env_sender, delete=False)
 
-    def move(self, folder):
+    def move(self, folder, create=False):
         self._processor.log("==> Moving UID {0} to {1}".format(self.uid, folder))
-        self.copy(folder)
+        self.copy(folder, create)
         self.delete()
 
     def parse_mail(self):

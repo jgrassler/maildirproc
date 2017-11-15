@@ -105,19 +105,63 @@ class ImapProcessor(MailProcessor):
                 errmsg, errmsg))
     # ----------------------------------------------------------------
 
+    def _select(self, folder):
+        try:
+            status, data = self.imap.select(mailbox=folder)
+        except self.imap.error as e:
+            self.fatal_error("Couldn't select folder %s: %s" % (folder, e))
+        if status != 'OK':
+            self.fatal_error("Couldn't select folder %s: %s / %s" % (folder,
+                              status, data[0].decode('ascii')))
+            return False
+        self.selected = folder
+        return True
+
+    def _status(self, folder):
+        try:
+            status, data = self.imap.select(mailbox=folder)
+        except self.imap.error as e:
+            self.fatal_error("Couldn't query status for "
+                             "folder %s: %s" % (folder, e))
+        data = data[0].decode('ascii')
+        # STATUS ends SELECT state, so return to previously selected folder.
+        self._select(self.selected)
+        return (status == 'OK', data)
+
     def list_messages(self, folder):
-        self.imap.select(mailbox=folder)
+        self._select(folder)
         ret, data = self.imap.search(None, "ALL")
         if ret != 'OK':
             log_imap_error("Listing messages in folder %s failed: %s" % (folder, ret))
             return []
         return data[0].decode('ascii').split()
 
-    def create_folder(self, folder, parents=False):
+    def create_folder(self, folder):
+        exists, detail = self._status(folder)
+
+        if exists:
+            self.log("==> Not creating folder %s: folder exists." % folder)
+            return
+
+        self.log("==> Creating folder %s" % folder)
         try:
-            status = self.imap.create("folder")
+            status, data = self.imap.create(folder)
         except self.imap.error as e:
             self.fatal_error("Couldn't create folder %s: %s", folder, e)
+        if status != 'OK':
+            self.fatal_error("Couldn't create folder "
+                             "%s: %s / %s" % (folder,
+                                              status, data[0].decode('ascii')))
+        try:
+            status, data = self.imap.subscribe(folder)
+        except self.imap.error as e:
+            self.fatal_error("Couldn't subscribe to folder %s: %s", folder, e)
+        if status != 'OK':
+            self.fatal_error("Couldn't subscribe to folder "
+                             "%s: %s / %s" % (folder,
+                                              status, data[0].decode('ascii')))
+
+        self.log("==> Successfully created folder %s" % folder)
 
     def __iter__(self):
         if not self._folders:
