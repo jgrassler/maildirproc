@@ -234,8 +234,8 @@ def main():
 
     processor_kwargs["run_once"] = options.once
 
-    for opt in ("auto_reload_rcfile", "certfile", "dry_run", "host", "interval",
-                "port", "user", "use_ssl", "verbosity"):
+    for opt in ("auto_reload_rcfile", "certfile", "dry_run", "folders", "host",
+                "interval", "port", "user", "use_ssl", "verbosity"):
         processor_kwargs[opt] = options.__dict__[opt]
 
 

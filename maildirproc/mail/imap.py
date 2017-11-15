@@ -46,9 +46,8 @@ class ImapMail(MailBase):
         try:
             status, data = self._processor.imap.copy(self.uid, folder)
         except self._processor.imap.error as e:
-            self._processor.log_imap_error("Copying message UID %s to %s "
-                                           " failed: %s" % (self.uid, folder, e))
-            raise
+            self._processor.fatal_imap_error("Copying message UID %s to %s "
+                                           % (self.uid, folder), e)
         if status == 'NO':
             if create and 'TRYCREATE' in data[0].decode('ascii'):
                 self._processor.log("==> Destination folder %s does not exist, "
@@ -71,9 +70,9 @@ class ImapMail(MailBase):
         except self._processor.imap.error as e:
             # Fail hard because repeated failures here can leave a mess of
             # messages with `Deleted` flags.
-            self._processor.log_imap_error(
-                "Error: Could not delete message {0} {1}: {2}".format(
-                    source, target, e))
+            self._processor.fatal_imap_error(
+                "Error: Could not delete message {0} {1}".format(
+                    source, target), e)
             raise
 
     def forward(self, addresses, env_sender, delete=True):
@@ -93,7 +92,7 @@ class ImapMail(MailBase):
             "==> Forwarding{0} to {1!r}".format(copy, addresses))
         try:
             ret, msg = self._processor.imap.fetch(self.uid, "RFC822")
-        except self._processor.error as e:
+        except self._processor.imap.error as e:
 						# Fail soft, since we haven't changed any mailbox state or forwarded
             # anything, yet. Hence we might as well retry later.
             self._processor.log_imap_error(
@@ -139,7 +138,7 @@ class ImapMail(MailBase):
             ret, data = self._processor.imap.fetch(self.uid,
                                                    "(BODY.PEEK[HEADER] FLAGS)")
         except self._processor.imap.error as e:
-            # Anything imaplib raises an exception for is fatal.
+            # Anything imaplib raises an exception for is fatal here.
             self._processor.fatal_error("Error retrieving message "
                                         "with UID %s: %s" % (self.uid, e))
         if ret != 'OK':

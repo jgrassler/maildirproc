@@ -37,7 +37,10 @@ from maildirproc.processor.generic import MailProcessor
 
 class ImapProcessor(MailProcessor):
     def __init__(self, *args, **kwargs):
-        self._folders = []
+        super(ImapProcessor, self).__init__(*args, **kwargs)
+
+        self.header_cache={}
+        self._folders={}
 
         self.interval = kwargs['interval']
   
@@ -85,13 +88,18 @@ class ImapProcessor(MailProcessor):
         p = re.compile('\(\(".*" "(.*)"')
         self.separator = p.match(namespace_data[0].decode('ascii')).group(1)
 
-        super(ImapProcessor, self).__init__(*args, **kwargs)
+        if kwargs['folders'] != None:
+            self.set_folders(kwargs['folders'])
+
 
     def get_folders(self):
         return self._folders
 
     def set_folders(self, folders):
         self._folders = folders
+        for folder in self.folders:
+            self.header_cache[folder] = []
+        self._cache_headers()
 
     folders = property(get_folders, set_folders)
 
@@ -102,8 +110,24 @@ class ImapProcessor(MailProcessor):
     def log_imap_error(self, operation, errmsg):
         self.log_error(
             "IMAP Error: {0} failed: {1}".format(
-                errmsg, errmsg))
+                operation, errmsg))
+
+    def fatal_imap_error(self, operation, errmsg):
+        self.fatal_error(
+            "Fatal IMAP Error: {0} failed: {1}".format(
+                operation, errmsg))
+
     # ----------------------------------------------------------------
+
+
+    def _cache_headers(self):
+        self.log("Updating header cache...")
+        for folder in self.folders:
+            for message in self.list_messages(folder):
+                self.header_cache[folder].append(
+                    self._mail_class(self, folder=folder,
+                                     uid=message))
+        self.log("Header cache up to date.")
 
     def _select(self, folder):
         try:
@@ -132,7 +156,8 @@ class ImapProcessor(MailProcessor):
         self._select(folder)
         ret, data = self.imap.search(None, "ALL")
         if ret != 'OK':
-            log_imap_error("Listing messages in folder %s failed: %s" % (folder, ret))
+            self.log_imap_error("Listing messages in folder %s failed: %s" % (folder,
+                                                                              ret))
             return []
         return data[0].decode('ascii').split()
 
@@ -179,8 +204,8 @@ class ImapProcessor(MailProcessor):
                     break
 
             for folder in self.folders:
-                for message in self.list_messages(folder):
-                    yield self._mail_class(self, folder=folder, uid=message)
+                for message in self.header_cache[folder]:
+                    yield message
 
             if self._run_once:
                 break
