@@ -17,14 +17,16 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
+import codecs
+import imaplib
 import locale
 import os
 import random
 import socket
 import ssl
+import re
 import sys
 import time
-import imaplib
 
 from maildirproc.util import iso_8601_now
 from maildirproc.util import safe_write
@@ -37,8 +39,7 @@ class ImapProcessor(MailProcessor):
     def __init__(self, *args, **kwargs):
         self._folders = []
 
-        if 'interval' in kwargs:
-           self.interval = kwargs['interval']
+        self.interval = kwargs['interval']
   
         if kwargs['port'] == None:
             kwargs['port'] = 143
@@ -74,7 +75,17 @@ class ImapProcessor(MailProcessor):
         else:
             self.imap.login(kwargs['user'], kwargs['password'])
             self._mail_class = ImapMail
-        super(MaildirProcessor, self).__init__(*args, **kwargs)
+
+        try:
+            _, namespace_data = self.imap.namespace()
+        except self.imap.error as e:
+            self.fatal_error("Couldn't retrieve name space separator for "
+                              "IMAP server: %s", e)
+
+        p = re.compile('\(\(".*" "(.*)"')
+        self.separator = p.match(namespace_data[0].decode('ascii')).group(1)
+
+        super(ImapProcessor, self).__init__(*args, **kwargs)
 
     def get_folders(self):
         return self._folders
@@ -100,7 +111,13 @@ class ImapProcessor(MailProcessor):
         if ret != 'OK':
             log_imap_error("Listing messages in folder %s failed: %s" % (folder, ret))
             return []
-        return data[0].split()
+        return data[0].decode('ascii').split()
+
+    def create_folder(self, folder, parents=False):
+        try:
+            status = self.imap.create("folder")
+        except self.imap.error as e:
+            self.fatal_error("Couldn't create folder %s: %s", folder, e)
 
     def __iter__(self):
         if not self._folders:
@@ -118,7 +135,7 @@ class ImapProcessor(MailProcessor):
                     break
 
             for folder in self.folders:
-                for message in list_messages(folder):
+                for message in self.list_messages(folder):
                     yield self._mail_class(self, folder=folder, uid=message)
 
             if self._run_once:

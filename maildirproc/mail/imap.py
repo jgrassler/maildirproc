@@ -17,6 +17,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
+import imaplib
 import subprocess
 import sys
 
@@ -32,7 +33,7 @@ if sys.version_info[0] < 3:
 class ImapMail(MailBase):
     def __init__(self, processor, **kwargs):
         self._uid = kwargs['uid']
-        self.message_flags = tuple()
+        self.message_flags = []
         super(ImapMail, self).__init__(processor, **kwargs)
 
     @property
@@ -42,7 +43,7 @@ class ImapMail(MailBase):
     def copy(self, folder):
         self._processor.log("==> Copying {0} to {1}".format(self.uid, folder))
         try:
-            self._processor.imap.copy(uid, folder)
+            self._processor.imap.copy(self.uid, folder)
         except self._processor.imap.error as e:
             self._processor.log_imap_error("Copying message UID %s to %s "
                                            " failed: %s" % (self.uid, folder, e))
@@ -77,7 +78,7 @@ class ImapMail(MailBase):
         self._processor.log(
             "==> Forwarding{0} to {1!r}".format(copy, addresses))
         try:
-            ret, msg = self._processor.fetch(self.uid, "RFC822")
+            ret, msg = self._processor.imap.fetch(self.uid, "RFC822")
         except self._processor.error as e:
 						# Fail soft, since we haven't changed any mailbox state or forwarded
             # anything, yet. Hence we might as well retry later.
@@ -121,23 +122,26 @@ class ImapMail(MailBase):
         self._processor.log("New mail detected with UID {0}:".format(self.uid))
 
         try:
-            ret, data = self._processor.fetch(self.uid, "BODY.PEEK[HEADER] FLAGS")
+            ret, data = self._processor.imap.fetch(self.uid,
+                                                   "(BODY.PEEK[HEADER] FLAGS)")
         except self._processor.imap.error as e:
             # Anything imaplib raises an exception for is fatal.
             self._processor.fatal_error("Error retrieving message "
-                                        "with UID %s: %s" % self.uid, e)
-        if ret != True:
+                                        "with UID %s: %s" % (self.uid, e))
+        if ret != 'OK':
             self._processor.log_error(
                 "Error: Could not retrieve message {0}: {1}".format(self.uid,
                                                                     ret))
             return False
 
-        self.message_flags = self._processor.imap.ParseFlags(data)
+        flags = imaplib.ParseFlags(data[0][0])
 
-        # Remove flags so they do not interfere with header parsing
-        data = self._processor.imap.Flags.sub(data)
+        for flag in flags:
+            self.message_flags.append(flag.decode('ascii'))
 
-        headers = email_parser.Parser().parsestr(data, headersonly=True)
+
+        headers = email_parser.Parser().parsestr(data[0][1].decode('ascii'),
+                                                 headersonly=True)
 
         for name in headers.keys():
             value_parts = []
