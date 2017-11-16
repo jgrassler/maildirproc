@@ -109,7 +109,7 @@ class MailProcessor(object):
                    "MailProcessor subclass.")
         raise NotImplementedError(message)
 
-    def create_folder(self, folder, parents=True):
+    def create_folder(self, folder, **kwargs):
         """
         Creates a new folder.
 
@@ -126,6 +126,7 @@ class MailProcessor(object):
         message = ("You need to implement a create_folder() method in your "
                    "MailProcessor subclass.")
         raise NotImplementedError(message)
+
     def log(self, text, level=1):
         if level <= self._log_level:
             safe_write(self._log_fp, text)

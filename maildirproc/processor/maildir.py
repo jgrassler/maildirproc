@@ -17,6 +17,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 
+import errno
 import hashlib
 import locale
 import os
@@ -37,6 +38,8 @@ class MaildirProcessor(MailProcessor):
     def __init__(self, *args, **kwargs):
         self._maildir_base = None
         self._maildirs = []
+        self.separator = kwargs.get('folder_separator', '.')
+        self.prefix = kwargs.get('folder_prefix', '.')
         if 'dry_run' in kwargs and kwargs['dry_run'] is True:
             self._mail_class = DryRunMail
         else:
@@ -95,6 +98,60 @@ class MaildirProcessor(MailProcessor):
 
     # ----------------------------------------------------------------
     # Interface used by MailBase and descendants:
+
+    def create_folder(self, folder, **kwargs):
+        """
+        Creates a new maildir folder.
+
+        It can safely be invoked with an existing folder name since it checks
+        for existence of the folder first and will do nothing if the folder
+        exists. This method creates a folder's parent folders recursively by
+        default. If you do not wish this behaviour, please specify
+        parents=False.
+        """
+
+        parents = kwargs.get('parents', True)
+        prefix = kwargs.get('prefix', self.prefix)
+
+        folder_list = self.path_list(folder, sep=self.separator)
+
+        if prefix != "":
+            folder_list[0] = prefix + folder_list[0]
+
+        if len(folder_list) == 0:
+            return
+
+        if parents:
+            self.create_folder(folder_list[:-1], parents=parents,
+                               prefix=prefix)
+
+        target = self.list_path(folder_list, sep=self.separator)
+
+        self.log("==> Creating folder %s" % target)
+
+        try:
+            self.create_maildir(os.path.join(self.maildir_base, target))
+        except OSError as e:
+            self.fatal_error("Couldn't create maildir %s: %s" % (target, e))
+
+        self.log("==> Successfully created folder %s" % target)
+
+    def create_maildir(self, name, parents=True):
+      """
+      Creates a new maildir.
+      """
+      for d in ['cur', 'new', 'tmp']:
+        try:
+          if parents:
+              os.makedirs(os.path.join(name, d), mode=0o700)
+          else:
+              os.mkdir(os.path.join(name, d), mode=0o700)
+        except OSError as e:
+          if e.errno == errno.EEXIST:
+            pass
+          else:
+            raise
+
 
     def create_maildir_name(self):
         """Create and return a unique name for a Maildir message."""

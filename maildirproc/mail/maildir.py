@@ -47,9 +47,11 @@ class MaildirMail(MailBase):
     def path(self):
         return self._path
 
-    def copy(self, maildir):
-        self._processor.log("==> Copying to {0}".format(maildir))
-        self._copy(maildir)
+    def copy(self, maildir, **kwargs):
+        sep = kwargs.get('sep', self._processor.separator)
+        maildir = self._processor.list_path(folder_list, sep=sep)
+        self._processor.log("==> Copying to {0}".format(target))
+        self._copy(maildir, *kwargs)
 
     def delete(self):
         self._processor.log("==> Deleting")
@@ -61,7 +63,25 @@ class MaildirMail(MailBase):
     def forward_copy(self, addresses, env_sender=None):
         self._forward(False, addresses, env_sender)
 
-    def move(self, maildir):
+    def move(self, maildir, **kwargs):
+        sep = kwargs.get('sep', self._processor.separator)
+
+        # Take care of prefix here and ensure create_folder() does not mess
+        # with it.
+        if self._processor.prefix != '':
+            kwargs['prefix'] = ''
+            folder_list = self._processor.path_list(maildir, sep=sep)
+            folder_list[0] = self._processor.prefix + folder_list[0]
+
+        maildir = self._processor.list_path(maildir, sep=sep)
+
+        if kwargs.get('create', False) and not os.path.isdir(maildir):
+            try:
+                self._processor.create_folder(folder_list, **kwargs)
+            except OSError as e:
+                raise
+                self._processor.fatal_error("Couldn't create maildir "
+                                            "%s: %s" % (maildir, e))
         self._processor.log("==> Moving to {0}".format(maildir))
         flagpart = self._get_flagpart()
         target = os.path.join(
@@ -112,7 +132,13 @@ class MaildirMail(MailBase):
 
     # ----------------------------------------------------------------
 
-    def _copy(self, maildir):
+    def _copy(self, maildir, **kwargs):
+        if kwargs.get('create', False) and not os.path.isdir(maildir):
+            try:
+                self._processor.create_folder(maildir, **kwargs)
+            except OSError as e:
+                self._processor.fatal_error("Couldn't create maildir "
+                                            "%s: %s" % (target, e))
         try:
             source_fp = open(self.path, "rb")
         except IOError as e:

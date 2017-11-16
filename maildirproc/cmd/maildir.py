@@ -105,6 +105,20 @@ def main():
         help="set maildir base directory; defaults to the current working"
              " directory")
     parser.add_option(
+        "-s",
+        "--folder-separator",
+        type="string",
+        default=".",
+        metavar="SEP",
+        help="Separate maildir folder names by SEP")
+    parser.add_option(
+        "-p",
+        "--folder-prefix",
+        type="string",
+        default=".",
+        metavar="PREFIX",
+        help="Prefix maildir directory names by PREFIX")
+    parser.add_option(
         "--once",
         action="store_true",
         default=False,
@@ -160,7 +174,9 @@ def main():
     processor = MaildirProcessor(
         rcfile=rcfile, log_fp=log_fp, log_level=log_level,
         dry_run=options.dry_run, run_once=options.once,
-        auto_reload_rcfile=options.auto_reload_rcfile)
+        auto_reload_rcfile=options.auto_reload_rcfile,
+        folder_prefix=options.folder_prefix,
+        folder_separator=options.folder_separator)
     processor.log("")
     processor.log(
         "Starting maildirproc {0} at {1}".format(
