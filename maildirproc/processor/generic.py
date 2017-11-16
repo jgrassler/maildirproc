@@ -116,6 +116,11 @@ class MailProcessor(object):
         This method is used to create a folder to store emails in. Depending on
         the `parents` parameter it also creates the folders parent folders if
         they do not exist. This should be the default behaviour.
+
+        folder may either be a path name separated by the appropriate path
+        component separator or a list of path name components. In the latter
+        case it is the create_folder() implementation's responsibility to join
+        the path components.
         """
 
         message = ("You need to implement a create_folder() method in your "
@@ -149,6 +154,27 @@ class MailProcessor(object):
             pass
         safe_write(sys.stderr, text)
         sys.exit(1)
+
+    def path_list(self, path, sep='.'):
+        """
+        Leaves a list of path components unchanged or converts a path name in
+        string form to a list of path components.
+        """
+
+        if type(path) is list:
+            return path
+
+        return path.split(sep)
+
+    def list_path(self, path, sep='.'):
+        """
+        Leaves a path name in string form unchanged and converts a list of path
+        components into a path in string form.
+        """
+
+        if type(path) is list:
+            return sep.join(path)
+        return path
 
     # ----------------------------------------------------------------
     # Private methods:

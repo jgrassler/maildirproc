@@ -130,35 +130,50 @@ class ImapProcessor(MailProcessor):
 
     def create_folder(self, folder, parents=True):
         """
-        Creates a new IMAP folder. It can safely be invoked with an existing
-        folder name since it checks for existence of the folder first and will
-        do nothing if the folder exists.
+        Creates a new IMAP folder.
+
+        It can safely be invoked with an existing folder name since it checks
+        for existence of the folder first and will do nothing if the folder
+        exists. This method creates a folder's parent directories recursively
+        by default. If you do not wish this behaviour, please specify
+        parents=False.
         """
-        exists, detail = self._status(folder)
+
+        folder_list = self.path_list(folder, sep=self.separator)
+
+        if len(folder_list) == 0:
+            return
+
+        if parents:
+            self.create_folder(folder_list[:-1], parents=parents)
+
+        target = self.list_path(folder, sep=self.separator)
+
+        exists, detail = self._status(target)
 
         if exists:
             self.log("==> Not creating folder %s: folder exists." % folder)
             return
 
-        self.log("==> Creating folder %s" % folder)
+        self.log("==> Creating folder %s" % target)
         try:
-            status, data = self.imap.create(folder)
+            status, data = self.imap.create(target)
         except self.imap.error as e:
-            self.fatal_error("Couldn't create folder %s: %s", folder, e)
+            self.fatal_error("Couldn't create folder %s: %s", target, e)
         if status != 'OK':
             self.fatal_error("Couldn't create folder "
-                             "%s: %s / %s" % (folder,
+                             "%s: %s / %s" % (target,
                                               status, data[0].decode('ascii')))
         try:
-            status, data = self.imap.subscribe(folder)
+            status, data = self.imap.subscribe(target)
         except self.imap.error as e:
-            self.fatal_error("Couldn't subscribe to folder %s: %s", folder, e)
+            self.fatal_error("Couldn't subscribe to folder %s: %s", target, e)
         if status != 'OK':
             self.fatal_error("Couldn't subscribe to folder "
-                             "%s: %s / %s" % (folder,
+                             "%s: %s / %s" % (target,
                                               status, data[0].decode('ascii')))
 
-        self.log("==> Successfully created folder %s" % folder)
+        self.log("==> Successfully created folder %s" % target)
 
     def list_messages(self, folder):
         """
@@ -250,4 +265,3 @@ class ImapProcessor(MailProcessor):
         # STATUS ends SELECT state, so return to previously selected folder.
         self._select(self.selected)
         return (status == 'OK', data)
-
