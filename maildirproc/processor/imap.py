@@ -31,7 +31,7 @@ import time
 from maildirproc.util import iso_8601_now
 from maildirproc.util import safe_write
 
-from maildirproc.mail.dryrun import DryRunMail
+from maildirproc.mail.dryrun import DryRunImap
 from maildirproc.mail.imap import ImapMail
 from maildirproc.processor.generic import MailProcessor
 
@@ -79,10 +79,14 @@ class ImapProcessor(MailProcessor):
 
 
         if 'dry_run' in kwargs and kwargs['dry_run'] is True:
-            self._mail_class = DryRunMail
+            self._mail_class = DryRunImap
         else:
-            self.imap.login(kwargs['user'], kwargs['password'])
             self._mail_class = ImapMail
+
+        try:
+            self.imap.login(kwargs['user'], kwargs['password'])
+        except self.imap.error as e:
+            self.fatal_imap_error("Login to IMAP server", e)
 
         try:
             _, namespace_data = self.imap.namespace()
@@ -90,8 +94,9 @@ class ImapProcessor(MailProcessor):
             self.fatal_error("Couldn't retrieve name space separator for "
                               "IMAP server: %s", e)
 
-        p = re.compile('\(\(".*" "(.*)"')
-        self.separator = p.match(namespace_data[0].decode('ascii')).group(1)
+        p = re.compile('\(\("(.*)" "(.*)"')
+        self.prefix = p.match(namespace_data[0].decode('ascii')).group(1)
+        self.separator = p.match(namespace_data[0].decode('ascii')).group(2)
 
         if kwargs['folders'] != None:
             self.set_folders(kwargs['folders'])
@@ -106,6 +111,12 @@ class ImapProcessor(MailProcessor):
         list of folders at runtime.
         """
         self._folders = folders
+
+        self.log("==> Processing the following IMAP folders:")
+        for folder in self.folders:
+            self.log("    " + folder)
+            self.log("")
+
         for folder in self.folders:
             self.header_cache[folder] = []
         self._cache_headers()

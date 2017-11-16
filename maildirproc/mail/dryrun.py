@@ -18,9 +18,14 @@
 # 02110-1301, USA.
 
 from maildirproc.mail.base import MailBase
+from maildirproc.mail.imap import ImapMail
+from maildirproc.mail.maildir import MaildirMail
 
-class DryRunMail(MailBase):
-    def copy(self, maildir):
+class DryRunImap(ImapMail):
+    def __init__(self, *args, **kwargs):
+        super(DryRunImap, self).__init__(*args, **kwargs)
+
+    def copy(self, maildir, **kwargs):
         self._processor.log("==> Copying to {0}".format(maildir))
 
     def delete(self):
@@ -32,7 +37,45 @@ class DryRunMail(MailBase):
     def forward_copy(self, addresses, env_sender=None):
         self._forward(False, addresses, env_sender)
 
-    def move(self, maildir):
+    def move(self, maildir, **kwargs):
+        self._processor.log("==> Moving to {0}".format(maildir))
+
+    # ----------------------------------------------------------------
+
+    def _forward(self, delete, addresses, env_sender):
+        if isinstance(addresses, basestring):
+            addresses = [addresses]
+        else:
+            addresses = list(addresses)
+        if not delete:
+            copy = " copy"
+        else:
+            copy = ""
+        self._processor.log(
+            "==> Forwarding{0} to {1!r}{2}".format(
+                copy,
+                addresses,
+                " (envelope sender: {0}".format(env_sender)
+                if env_sender is not None else ""))
+
+
+class DryRunMaildir(MaildirMail):
+    def __init__(self, *args, **kwargs):
+        super(DryRunMaildir, self).__init__(*args, **kwargs)
+
+    def copy(self, maildir, **kwargs):
+        self._processor.log("==> Copying to {0}".format(maildir))
+
+    def delete(self):
+        self._processor.log("==> Deleting")
+
+    def forward(self, addresses, env_sender=None):
+        self._forward(True, addresses, env_sender)
+
+    def forward_copy(self, addresses, env_sender=None):
+        self._forward(False, addresses, env_sender)
+
+    def move(self, maildir, **kwargs):
         self._processor.log("==> Moving to {0}".format(maildir))
 
     # ----------------------------------------------------------------

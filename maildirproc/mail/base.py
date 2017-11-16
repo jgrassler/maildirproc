@@ -167,7 +167,7 @@ class MailBase(object):
         flag) is left up to the subclass' implementation.
         """
 
-        message = ("You need to implement a parse_mail() method in your "
+        message = ("You need to implement a is_seen() method in your "
                    "MailBase subclass.")
         raise NotImplementedError(message)
 

@@ -27,8 +27,6 @@ import time
 
 from maildirproc.util import iso_8601_now
 from maildirproc.util import safe_write
-from maildirproc.mail.dryrun import DryRunMail
-from maildirproc.mail.maildir import MaildirMail
 
 class MailProcessor(object):
     def __init__(

@@ -31,7 +31,7 @@ from maildirproc.util import iso_8601_now
 from maildirproc.util import safe_write
 
 from maildirproc.processor.generic import MailProcessor
-from maildirproc.mail.dryrun import DryRunMail
+from maildirproc.mail.dryrun import DryRunMaildir
 from maildirproc.mail.maildir import MaildirMail
 
 class MaildirProcessor(MailProcessor):
@@ -41,7 +41,7 @@ class MaildirProcessor(MailProcessor):
         self.separator = kwargs.get('folder_separator', '.')
         self.prefix = kwargs.get('folder_prefix', '.')
         if 'dry_run' in kwargs and kwargs['dry_run'] is True:
-            self._mail_class = DryRunMail
+            self._mail_class = DryRunMaildir
         else:
             self._mail_class = MaildirMail
         super(MaildirProcessor, self).__init__(*args, **kwargs)
