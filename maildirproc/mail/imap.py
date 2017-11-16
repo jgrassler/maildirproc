@@ -28,9 +28,6 @@ from email import parser as email_parser
 
 from maildirproc.mail.base import MailBase
 
-if sys.version_info[0] < 3:
-    from maildirproc.util import ascii
-
 class ImapMail(MailBase):
     """
     This class is used for processing emails in IMAP mailboxes. It is chiefly

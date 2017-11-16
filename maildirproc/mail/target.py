@@ -19,9 +19,6 @@
 
 import sys
 
-if sys.version_info[0] < 3:
-    from maildirproc.util import ascii
-
 class MailTarget(object):
     _target_headers = ["to", "cc"]
 

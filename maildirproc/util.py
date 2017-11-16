@@ -21,17 +21,7 @@ import hashlib
 import sys
 import time
 
-if sys.version_info[0] >= 3:
-    basestring = str
-else:
-    def ascii(x):
-        # We don't want the "u" prefix in repr'd strings in Python 2.x.
-        r = repr(x)
-        if r.startswith("u"):
-            return r[1:]
-        else:
-            return r
-
+basestring = str
 
 def offset_to_timezone(offset):
     if offset <= 0:

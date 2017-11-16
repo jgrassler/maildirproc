@@ -20,9 +20,6 @@
 import re
 import sys
 
-if sys.version_info[0] < 3:
-    from maildirproc.util import ascii
-
 class MailHeader(object):
     def __init__(self, mail, name, text):
         self._mail = mail

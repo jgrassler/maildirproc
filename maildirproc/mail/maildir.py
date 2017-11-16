@@ -30,9 +30,6 @@ from maildirproc.mail.base import MailBase
 from maildirproc.util import iso_8601_now
 from maildirproc.util import sha1sum
 
-if sys.version_info[0] < 3:
-    from maildirproc.util import ascii
-
 class MaildirMail(MailBase):
     def __init__(self, processor, **kwargs):
         self._maildir = kwargs['maildir']
