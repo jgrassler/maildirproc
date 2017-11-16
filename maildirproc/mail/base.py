@@ -62,7 +62,7 @@ class MailBase(object):
 
     ### Methods to implement ###
 
-    def copy(self, folder):
+    def copy(self, folder, create=False):
         """
         Copy the message to a folder.
 
@@ -100,6 +100,7 @@ class MailBase(object):
 
         message = ("You need to implement a forward() method in your "
                    "MailBase subclass.")
+
         raise NotImplementedError(message)
 
     def forward_copy(self, addresses, env_sender=None):
@@ -118,7 +119,7 @@ class MailBase(object):
                    "MailBase subclass.")
         raise NotImplementedError(message)
 
-    def move(self, folder):
+    def move(self, folder, create=False):
         """
         Move the message to a folder.
 
@@ -128,6 +129,7 @@ class MailBase(object):
 
         @folder: the destination folder to move the message to.
         """
+
         message = ("You need to implement a move() method in your "
                    "MailBase subclass.")
         raise NotImplementedError(message)
@@ -141,8 +143,19 @@ class MailBase(object):
         values are these header's contents. Returns True upon success, False
         upon failure.
         """
+
         message = ("You need to implement a parse_mail() method in your "
                    "MailBase subclass.")
+        raise NotImplementedError(message)
+
+    def log_processing(self):
+        """
+        Log message metadata as MailBase subclasses are initialized.
+
+        This message is invoked by the MailBase constructor to write message
+        metadata (typically a selection of headers) to the log file.
+        """
+
         raise NotImplementedError(message)
 
     def is_seen(self):

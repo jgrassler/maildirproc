@@ -32,6 +32,11 @@ if sys.version_info[0] < 3:
     from maildirproc.util import ascii
 
 class ImapMail(MailBase):
+    """
+    This class is used for processing emails in IMAP mailboxes. It is chiefly
+    concerned with message level operations, such as copying, moving and
+    forwarding messages. Its instances represent individual email messages.
+    """
     def __init__(self, processor, **kwargs):
         self._uid = kwargs['uid']
         self.message_flags = []
@@ -39,9 +44,16 @@ class ImapMail(MailBase):
 
     @property
     def uid(self):
+        """
+        Returns the message's UUID.
+        """
         return self._uid
 
     def copy(self, folder, create=False):
+        """
+        Copies the message to folder. Optionally that folder can be created
+        if it does not exist. In that case, specify create=True.
+        """
         self._processor.log("==> Copying {0} to {1}".format(self.uid, folder))
         try:
             status, data = self._processor.imap.uid('copy', self.uid, folder)
@@ -63,6 +75,9 @@ class ImapMail(MailBase):
                                             "folders." % folder)
 
     def delete(self):
+        """
+        Deletes the message.
+        """
         try:
             self._processor.log("==> Deleting %s" % self.uid)
             self._processor.imap.uid('store', self.uid, '+FLAGS', '\\Deleted')
@@ -76,6 +91,10 @@ class ImapMail(MailBase):
             raise
 
     def forward(self, addresses, env_sender, delete=True):
+        """
+        Forwards the message to one or more addresses. The original message
+        will be deleted.
+        """
         if isinstance(addresses, basestring):
             addresses = [addresses]
         else:
@@ -123,14 +142,35 @@ class ImapMail(MailBase):
             self.delete()
 
     def forward_copy(self, addresses, env_sender=None):
+        """
+        Forwards a copy of the message to one or more addresses. The original
+        message will be retained.
+        """
         self.forward(addresses, env_sender, delete=False)
 
+    def is_seen(self):
+        """
+        Returns True if the message has its '\Seen' flag set, False otherwise.
+        The '\Seen' flag typically indicates the email been opened in a mail
+        user agent and thus been seen by the user.
+        """
+        return '\Seen' in self.message_flags
+
     def move(self, folder, create=False):
+        """
+        Moves the message to folder. Optionally that folder can be created if
+        it does not exist. In that case, specify create=True.
+        """
         self._processor.log("==> Moving UID {0} to {1}".format(self.uid, folder))
         self.copy(folder, create)
         self.delete()
 
     def parse_mail(self):
+        """
+        Retrieves a message's header from the IMAP server and parses its
+        headers in the email header data structure used by the user's filters.
+        This method is invoked by the parent class' constructor.
+        """
         self._processor.log("")
         self._processor.log("New mail detected with UID {0}:".format(self.uid))
 
@@ -179,10 +219,11 @@ class ImapMail(MailBase):
 
     # ----------------------------------------------------------------
 
-    def is_seen(self):
-        return '\Seen' in self.message_flags
-
     def _log_processing(self):
+        """
+        This method is invoked by the parent class' constructor to write
+        message metadata to the log as this class is instantiated.
+        """
         self._processor.log("UID:       {0}".format(self.uid))
         for name in "Message-ID Subject Date From To Cc".split():
             self._processor.log(

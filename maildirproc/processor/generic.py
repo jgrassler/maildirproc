@@ -97,10 +97,30 @@ class MailProcessor(object):
     sendmail_flags = property(get_sendmail_flags, set_sendmail_flags)
 
     def __iter__(self):
-        message = ("You need to implement an __iter__ operation in your actual "
-                   "processor class")
+        """
+        Iterator method used to invoke the processor from default.rc.
+
+        The user must be able to treat your processor class as an iterable
+        object that provides every message as a maildirproc.mail.base.MailBase
+        subclass.
+        """
+
+        message = ("You need to implement an __iter__ method in your "
+                   "MailProcessor subclass.")
         raise NotImplementedError(message)
 
+    def create_folder(self, folder, parents=True):
+        """
+        Creates a new folder.
+
+        This method is used to create a folder to store emails in. Depending on
+        the `parents` parameter it also creates the folders parent folders if
+        they do not exist. This should be the default behaviour.
+        """
+
+        message = ("You need to implement a create_folder() method in your "
+                   "MailProcessor subclass.")
+        raise NotImplementedError(message)
     def log(self, text, level=1):
         if level <= self._log_level:
             safe_write(self._log_fp, text)

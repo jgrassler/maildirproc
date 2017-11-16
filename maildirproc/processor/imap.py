@@ -36,6 +36,11 @@ from maildirproc.mail.imap import ImapMail
 from maildirproc.processor.generic import MailProcessor
 
 class ImapProcessor(MailProcessor):
+    """
+    This class is used for processing emails in IMAP mailboxes. It is chiefly
+    concerned with folder and account level operations, such as establishing
+    the IMAP session, creating and listing folders.
+    """
     def __init__(self, *args, **kwargs):
         super(ImapProcessor, self).__init__(*args, **kwargs)
 
@@ -96,6 +101,10 @@ class ImapProcessor(MailProcessor):
         return self._folders
 
     def set_folders(self, folders):
+        """
+        Setter method for the folders to operate on. Can be used to update the
+        list of folders at runtime.
+        """
         self._folders = folders
         for folder in self.folders:
             self.header_cache[folder] = []
@@ -104,8 +113,7 @@ class ImapProcessor(MailProcessor):
     folders = property(get_folders, set_folders)
 
     # ----------------------------------------------------------------
-    # Interface used by MailBase and descendants:
-
+    # Logging methods
 
     def log_imap_error(self, operation, errmsg):
         self.log_error(
@@ -120,52 +128,12 @@ class ImapProcessor(MailProcessor):
     # ----------------------------------------------------------------
 
 
-    def _cache_headers(self):
-        self.log("Updating header cache...")
-        for folder in self.folders:
-            for message in self.list_messages(folder):
-                self.header_cache[folder].append(
-                    self._mail_class(self, folder=folder,
-                                     uid=message))
-        self.log("Header cache up to date.")
-
-    def _select(self, folder):
-        try:
-            status, data = self.imap.select(mailbox=folder)
-        except self.imap.error as e:
-            self.fatal_error("Couldn't select folder %s: %s" % (folder, e))
-        if status != 'OK':
-            self.fatal_error("Couldn't select folder %s: %s / %s" % (folder,
-                              status, data[0].decode('ascii')))
-            return False
-        self.selected = folder
-        return True
-
-    def _status(self, folder):
-        try:
-            status, data = self.imap.select(mailbox=folder)
-        except self.imap.error as e:
-            self.fatal_error("Couldn't query status for "
-                             "folder %s: %s" % (folder, e))
-        data = data[0].decode('ascii')
-        # STATUS ends SELECT state, so return to previously selected folder.
-        self._select(self.selected)
-        return (status == 'OK', data)
-
-    def list_messages(self, folder):
-        self._select(folder)
-        try:
-            ret, data = self.imap.uid('search', None, "ALL")
-        except self.imap.error as e:
-            self.fatal_error("Listing messages in folder %s "
-                             "failed: %s" % (folder, e))
-        if ret != 'OK':
-            self.log_imap_error("Listing messages in folder %s failed: %s" % (folder,
-                                                                              ret))
-            return []
-        return data[0].decode('ascii').split()
-
-    def create_folder(self, folder):
+    def create_folder(self, folder, parents=True):
+        """
+        Creates a new IMAP folder. It can safely be invoked with an existing
+        folder name since it checks for existence of the folder first and will
+        do nothing if the folder exists.
+        """
         exists, detail = self._status(folder)
 
         if exists:
@@ -192,7 +160,28 @@ class ImapProcessor(MailProcessor):
 
         self.log("==> Successfully created folder %s" % folder)
 
+    def list_messages(self, folder):
+        """
+        Lists all messages in an IMAP folder.
+        """
+        self._select(folder)
+        try:
+            ret, data = self.imap.uid('search', None, "ALL")
+        except self.imap.error as e:
+            self.fatal_error("Listing messages in folder %s "
+                             "failed: %s" % (folder, e))
+        if ret != 'OK':
+            self.log_imap_error("Listing messages in folder %s failed: %s" % (folder,
+                                                                              ret))
+            return []
+        return data[0].decode('ascii').split()
+
+
     def __iter__(self):
+        """
+        Iterator method used to invoke the processor from the filter
+        configuration file.
+        """
         if not self._folders:
             self.fatal_error("Error: No folders to process")
 
@@ -214,4 +203,51 @@ class ImapProcessor(MailProcessor):
             if self._run_once:
                 break
             time.sleep(self.interval)
+
+
+    # ----------------------------------------------------------------
+
+    def _cache_headers(self):
+        """
+        This method updates the processor's header cache for all folders this
+        processor is configured to process.
+        """
+        self.log("Updating header cache...")
+        for folder in self.folders:
+            for message in self.list_messages(folder):
+                self.header_cache[folder].append(
+                    self._mail_class(self, folder=folder,
+                                     uid=message))
+        self.log("Header cache up to date.")
+
+    def _select(self, folder):
+        """
+        Performs an IMAP SELECT on folder in preparation for retrieving the
+        list of message UIDs in that folder.
+        """
+        try:
+            status, data = self.imap.select(mailbox=folder)
+        except self.imap.error as e:
+            self.fatal_error("Couldn't select folder %s: %s" % (folder, e))
+        if status != 'OK':
+            self.fatal_error("Couldn't select folder %s: %s / %s" % (folder,
+                              status, data[0].decode('ascii')))
+            return False
+        self.selected = folder
+        return True
+
+    def _status(self, folder):
+        """
+        Performs an IMAP STATUS on folder. Primarily useful for checking folder
+        existence.
+        """
+        try:
+            status, data = self.imap.select(mailbox=folder)
+        except self.imap.error as e:
+            self.fatal_error("Couldn't query status for "
+                             "folder %s: %s" % (folder, e))
+        data = data[0].decode('ascii')
+        # STATUS ends SELECT state, so return to previously selected folder.
+        self._select(self.selected)
+        return (status == 'OK', data)
 
