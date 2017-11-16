@@ -38,7 +38,7 @@ from maildirproc.util import iso_8601_now
 
 def main():
     maildirproc_directory = "~/.maildirproc"
-    default_rcfile_location = os.path.join(maildirproc_directory, "default-imap.rc")
+    default_rcfile_location = os.path.join(maildirproc_directory, "imap.rc")
     default_logfile_location = os.path.join(maildirproc_directory, "log-imap")
 
     if not os.path.isdir(os.path.expanduser(maildirproc_directory)):
