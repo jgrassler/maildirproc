@@ -62,7 +62,7 @@ class ImapMail(MailBase):
         try:
             status, data = self._processor.imap.uid('copy', self.uid, folder)
         except self._processor.imap.error as e:
-            self._processor.fatal_imap_error("Copying message UID %s to %s "
+            self._processor.fatal_imap_error("Copying message UID %s to %s"
                                            % (self.uid, folder), e)
         if status == 'NO':
             if create and 'TRYCREATE' in data[0].decode('ascii'):
