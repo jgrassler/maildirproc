@@ -36,6 +36,7 @@ class ImapMail(MailBase):
     """
     def __init__(self, processor, **kwargs):
         self._uid = kwargs['uid']
+        self._folder = kwargs['folder']
         self.message_flags = []
         super(ImapMail, self).__init__(processor, **kwargs)
 
@@ -45,6 +46,13 @@ class ImapMail(MailBase):
         Returns the message's UUID.
         """
         return self._uid
+
+    @property
+    def folder(self):
+        """
+        Returns the message's UUID.
+        """
+        return self._folder
 
     def copy(self, folder, create=False):
         """

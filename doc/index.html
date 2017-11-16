@@ -24,6 +24,16 @@ delivery agent (which wants to be part of the delivery chain),
 maildirproc only processes already delivered mail. And that's a
 feature, not a bug.</p>
 
+<p>imapproc is a program that processes one or more folders on an 
+<a href="https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol">IMAP</a>
+server. Much like maildirproc it sorts, e.g. moves, copies and forwards
+email. It uses the same filter configuration mechanism as maildirproc: a
+Python script that hooks into maildirprocs processing code.</p>
+
+<p> imapproc was written by Johannes Grassler <johannes@btw23.de> and is
+distributed under the terms of the GNU General Public Licence (see the
+file LICENSE for details).</p>
+
 <p>maildirproc was written by <a href="http://joel.rosdahl.net">Joel
 Rosdahl</a> &lt;<a
 href="mailto:joel@rosdahl.net">joel@rosdahl.net</a>&gt; and is

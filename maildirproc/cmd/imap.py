@@ -130,13 +130,14 @@ def main():
         "-c",
         "--certfile",
         type="string",
-        help="IMAP server to log in to.")
+        help="Certificate file to verify server's certificate against (only relevant for IMAPS)")
     parser.add_option(
         "-H",
         "--host",
         type="string",
         help="IMAP server to log in to.")
     parser.add_option(
+        "-i",
         "--interval",
         type="int",
         default=300,

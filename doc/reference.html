@@ -24,6 +24,10 @@ maildirproc sleeps one second and then checks again. And so on. To
 make maildirproc exit when there is no mail left, pass the <span
 class="command-line">--once</span> option.</p>
 
+<p>imapproc performs the same function, but for remote
+<a href="https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol">IMAP</a>
+email accounts.</p>
+
 <p>maildirproc keeps a list of maildir directories to process. At
 least one maildir directory must be specified for maildirproc to run.
 A maildir directory path can be absolute (starting with a slash) or
@@ -34,6 +38,14 @@ passing command line options, or by setting attributes on the <span
 class="language-symbol">processor</span> object in the rc file. The rc
 file has priority over the command line options.</p>
 
+<p>imapproc keeps a list of folders in the IMAP account to process. At
+least least one maildir directory must be specified for maildirproc to
+run. Folder paths are always absolute. There are two ways to specify
+this information: by passing command line options, or by setting
+attributes on the <span class="language-symbol">processor</span> object
+in the rc file. The rc file has priority over the command line
+options.</p>
+
 <p>In a <a
 href="http://en.wikipedia.org/wiki/Maildir#Maildir.2B.2B">Maildir++</a>-style
 setup, the maildir base directory should typically be set to <span
@@ -41,23 +53,33 @@ class="command-line">~/Maildir</span> and the maildir list should
 include the directory <span class="command-line">.</span> to make
 maildirproc process the inbox.</p>
 
-<p>The default location of the rc file is <span
-class="command-line">~/.maildirproc/default.rc</span> and the default
-location of the log file is <span
-class="command-line">~/.maildirproc/log</span>.</p>
+<p>The typical folder to run imapproc on is INBOX but you can of course
+specify multiple folders to process.</a>
 
-<p>maildirproc can optionally reload the rc file whenever a
-modification is detected (that is, the file's mtime has changed). This
-automatic reloading is turned off by default and can be enabled either
-by passing the <span class="command-line">--auto-reload-rcfile</span>
-command line option or by setting the <span
-class="language-symbol">auto_reload_rcfile</span> property to <span
-class="language-symbol">True</span> on the <span
+<p>The default location of the rc file for maildirproc is <span
+class="command-line">~/.maildirproc/maildir.rc</span> and the default
+location of its log file is <span
+class="command-line">~/.maildirproc/log-maildir</span>.</p>
+
+<p>The default location of the rc file for imapproc is <span
+class="command-line">~/.maildirproc/imap.rc</span> and the default
+location of its log file is <span
+class="command-line">~/.maildirproc/log-imap</span>.</p>
+
+<p>both maildirproc and imapproc can optionally reload the rc file
+whenever a modification is detected (that is, the file's mtime has
+changed). This automatic reloading is turned off by default and can be
+enabled either by passing the <span
+class="command-line">--auto-reload-rcfile</span> command line option or
+by setting the <span class="language-symbol">auto_reload_rcfile</span>
+property to <span class="language-symbol">True</span> on the <span
 class="language-symbol">processor</span> object in the rc file.</p>
 
 <h2>Command line options</h2>
 
-<p>maildirproc takes these command line options:</p>
+<h3>Common options</h3>
+
+<p>maildirproc and imapproc both take the following common command line options:</p>
 
 <dl class="command-line-options">
 
@@ -79,14 +101,6 @@ class="language-symbol">processor</span> object in the rc file.</p>
 <dt>--log-level=INTEGER</dt>
 <dd>only include log messages with this log level or lower; defaults to 1</dd>
 
-<dt>-m DIRECTORY, --maildir=DIRECTORY</dt>
-<dd>add DIRECTORY to the set of maildir directories to process (can be
-passed multiple times); if DIRECTORY is relative, it will be
-considered relative to the maildir base directory</dd>
-
-<dt>-b DIRECTORY, --maildir-base=DIRECTORY</dt>
-<dd>set maildir base directory; defaults to the current working directory</dd>
-
 <dt>--once</dt>
 <dd>only process the maildirs once and then exit; without this flag, maildirproc will scan the maildirs continuously</dd>
 
@@ -101,10 +115,71 @@ considered relative to the maildir base directory</dd>
 
 </dl>
 
+<h3>maildirproc specific options</h3>
+
+<p>The following options are specific to maildirproc:</p>
+
+<dl class="command-line-options">
+
+<dt>-m DIRECTORY, --maildir=DIRECTORY</dt>
+<dd>add DIRECTORY to the set of maildir directories to process (can be
+passed multiple times); if DIRECTORY is relative, it will be
+considered relative to the maildir base directory</dd>
+
+<dt>-b DIRECTORY, --maildir-base=DIRECTORY</dt>
+<dd>set maildir base directory; defaults to the current working directory</dd>
+
+<dt>-p PREFIX, --folder-prefix</dt>
+<dd>prefix Maildir names with PREFIX; defaults to '.'</dd>
+
+<dt>-s SEP, --folder-separator=SEP</dt>
+<dd>use sep as a folder separator in maildir names; defaults to '.'.
+List style folder names passed to create_folder() will be joined by this
+character, e.g. ["github", "jrosdahl", "maildirproc"] will become
+".github.jrosdahl.maildirproc.</dd>
+
+</dl>
+
+<h3>imapproc specific options</h3>
+
+<dl class="command-line-options">
+
+<dt>-c CERT, --certfile</dt>
+<dd>Use SSL certificate file CERT to verify IMAP server's SSL
+certificate (only relevant for IMAPS)</dd>
+
+<dt>-H HOST, --host</dt>
+<dd>Connect to IMAP server HOST. This option is mandatory</dd>
+
+<dt>-i INTERVAL, --interval</dt>
+<dd>Scan IMAP folders for new email every INTERVAL seconds; defaults to
+300; will be ignored if --once is specified as well</dd>
+
+<dt>-p PASSWORD PW, --interval</dt>
+<dd>Use password PW to authenticate against IMAP server; since this will
+show up in the process list, this is mainly intended for debugging. Use
+--password-command otherwise. Either this option or --password-command
+is mandatory.</dd>
+
+<dt>--password-command CMD</dt>
+<dd>Run command CMD and send use its output as the password to
+authenticate against the IMAP server with. This is the recommended
+approach for specifying the IMAP password. Either this option or
+--password is mandatory.</dd>
+
+<dt>-P PORT --port</dt>
+<dd>IMAP port to use. Defaults to 143 if --use-ssl is not specified and
+993 if it is.</dd>
+
+<dt>-s --use-ssl</dt>
+<dd>Use SSL to connect to the IMAP server (default: no).</dd>
+
+</dl>
+
 <h2>Configuration</h2>
 
-<p>maildirproc's configuration, the <i>rc file</i>, is not a set of
-declarative rules. Instead, it is a simple <a
+<p>maildirproc's and imapproc's configuration, the <i>rc file</i>, is
+not a set of declarative rules. Instead, it is a simple <a
 href="http://www.python.org">Python</a> program that has access to a
 "maildir processor" object which produces mail objects. The mail
 processing logic is defined in terms of if/elif/else statements and
@@ -112,11 +187,15 @@ actions are performed by calling methods on the mail objects.</p>
 
 <p>The program has access to one special object: the <span
 class="language-symbol">processor</span> object, which is an instance of
-the <span class="language-symbol">MaildirProcessor</span> class.</p>
+the <span class="language-symbol">MailProcessor</span> class.</p>.
+Maildir and IMAP specific functionality is implemented by the
+<span class="language-symbol">MaildirProcessor</span> and
+<span class="language-symbol">ImapProcessor</span> classes,
+respecitively.
 
-<h3>The MaildirProcessor class</h3>
+<h3>The MailProcessor class</h3>
 
-<p>Iteration over a <span class="command-line">MaildirProcessor</span>
+<p>Iteration over a <span class="command-line">MailProcessor</span>
 instance yields <span class="language-symbol">Mail</span>
 instances.</p>
 
@@ -128,10 +207,49 @@ instances.</p>
 <dd>Whether the rc file should be automatically reloaded when it has been modified. Assignment to this property overrides the corresponding command-line option.</dd>
 
 <dt>maildir_base</dt>
-<dd>The base directory of maildirs. Assignment to this property overrides the corresponding command-line option.</dd>
+<dd>The base directory of maildirs. Assignment to this property
+overrides the corresponding command-line option. This property is
+specific to MaildirProcessor instances.</dd>
 
 <dt>maildirs</dt>
-<dd>A list of maildirs (subdirectories of the maildir base directory). Assignment to this property overrides the corresponding command-line option.</dd>
+<dd>A list of maildirs (subdirectories of the maildir base directory).
+Assignment to this property overrides the corresponding command-line
+option. This property is specific to MaildirProcessor instances.</dd>
+</dl>
+
+<dt>folders</dt>
+<dd>A list of IMAP folders. Assignment to this property overrides the
+corresponding command-line option. This property is specific to
+ImapProcessor instances.</dd>
+
+</dl>
+
+<h4>Methods</h4>
+
+<dl class="class-attributes">
+
+<dt>create_folder(<i>folder</i>, <i>parents=True</i>, <i>prefix='.')</dt>
+<dd>Create folder <i>folder</i> (a string, or a list of namespace
+components).
+
+This method can safely be called for existing folders. If the folder
+exists already, the method will log that it exists and exit without
+trying to create it.
+
+For MaildirProcessor <i>folder</i> does not need to be on the same file
+system as the mail. If the <i>folder</i> path is relative, it will be
+considered relative to the maildir base directory.</dd>
+
+The boolean keyword argument <i>parents</i> governs whether parent
+folders should be created as well, e.g. if you create
+'github.jrosdahl.maildirproc', 'github' and 'github.jrosdahl' will be
+created as well. This is the default behaviour.
+
+The <i>prefix</i> keyword argument specifies a prefix to prepend the folder
+name with. This defaults to the processors <i>prefix</i> attribute which
+is set via the --prefix command line attribute for MaildirProcessor
+instances and drawn from the server's NAMESPACE response for
+ImapProcessor instances.
 
 </dl>
 
@@ -154,11 +272,17 @@ class="language-symbol">Header</span> instance.</p>
 
 <dl class="class-attributes">
 
+<dt>folder</dt>
+<dd>The IMAP folder in which the mail is situated. Only applicable for
+ImapProcessor.</dd>
+
 <dt>maildir</dt>
-<dd>The maildir in which the mail is situated.</dd>
+<dd>The maildir in which the mail is situated. Only applicable for
+MaildirProcessor.</dd>
 
 <dt>path</dt>
-<dd>Full filesystem path to the mail.</dd>
+<dd>Full filesystem path to the mail. Only applicable for
+MaildirProcessor.</dd>
 
 <dt>target</dt>
 <dd>A <span class="command-line">Target</span> instance.</dd>
@@ -169,11 +293,15 @@ class="language-symbol">Header</span> instance.</p>
 
 <dl class="class-attributes">
 
-<dt>copy(<i>maildir</i>)</dt>
+<dt>copy(<i>maildir</i>, <i>create=False</i>)</dt>
 <dd>Copy the mail to <i>maildir</i> (a string). <i>maildir</i> does
 not need to be on the same file system as the mail. If the
 <i>maildir</i> path is relative, it will be considered relative to the
-maildir base directory.</dd>
+maildir base directory.
+
+If the optional <i>create</i> keyword argument is set to True, the
+folder (and its parent folders) will be created if it does not exist. By
+default non-existent folders are not created.</dd>
 
 <dt>delete()</dt>
 <dd>Delete the mail.</dd>
@@ -196,11 +324,17 @@ to use.</dd>
 Mailing-List, X-BeenThere and X-Mailing-List are checked. Returns a
 boolean.</dd>
 
-<dt>move(<i>maildir</i>)</dt> <dd>Move the mail to <i>maildir</i> (a
-string). <i>maildir</i> <b>must</b> be on the same file system as the
-mail, otherwise nothing will happen and an error will be logged. If
-the <i>maildir</i> path is relative, it will be considered relative to
-the maildir base directory.</dd>
+<dt>move(<i>maildir</i>, <i>create=False</i>)</dt>
+<dd>Move the mail to <i>maildir</i> (a string). <i>maildir</i>
+<b>must</b> be on the same file system as the mail, otherwise nothing
+will happen and an error will be logged.
+
+For MaildirProcessor, a relative <i>maildir</i> path, will be considered
+relative to the maildir base directory.
+
+If the optional <i>create</i> keyword argument is set to True, the
+folder (and its parent folders) will be created if it does not exist. By
+default non-existent folders are not created.</dd>
 
 </dl>
 
