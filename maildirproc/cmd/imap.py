@@ -202,6 +202,7 @@ def main():
     if options.password_command:
         try:
             p = subprocess.check_output(options.password_command, shell=True)
+            p = p.decode(locale.getpreferredencoding()).rstrip("\n")
         except subprocess.CalledProcessError as e:
             print("Password command failed with exit status %d, "
                   "output follows." % e.returncode, file=sys.stderr)
@@ -210,7 +211,7 @@ def main():
         except Exception as e:
             print ("Could not execute command %s: %s" % (options.password_command, e))
             sys.exit(1)
-        processor_kwargs[password] = p.output
+        processor_kwargs['password'] = p
 
     if options.test:
         options.dry_run = True

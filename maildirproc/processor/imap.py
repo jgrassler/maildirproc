@@ -48,35 +48,38 @@ class ImapProcessor(MailProcessor):
         self._folders={}
 
         self.interval = kwargs['interval']
-  
-        if kwargs['port'] == None:
-            kwargs['port'] = 143
+        if kwargs['log_level'] > 2:
+            imaplib.Debug = 1
 
+        if kwargs['port']:
+            port = kwargs['port']
+  
         if kwargs['use_ssl']:
-            if kwargs['port'] == None:
-                kwargs['port'] = 993
+            if not kwargs['port']:
+                port = 993
             ssl_context = ssl.SSLContext()
-            if 'certfile' in kwargs:
+            if kwargs['certfile']:
                 ssl_context.load_cert_chain(kwargs['certfile'])
             else:
-                ssl_context.create_default_context()
+                ssl_context.load_default_certs()
 
             try:
                 self.imap = imaplib.IMAP4_SSL(host=kwargs['host'], 
-                                              port=kwargs['port'],
-                                              sl_context=ssl_context)
+                                              port=port,
+                                              ssl_context=ssl_context)
             except Exception as e:
                 self.fatal_error("Couldn't connect to IMAP server "
                                  "imaps://%s:%d: %s" % ( kwargs['host'],
-                                                         kwargs['port'], e))
+                                                         port, e))
         else:
             try:
-                self.imap = imaplib.IMAP4(host=kwargs['host'], port=kwargs['port'])
+                if not kwargs['port']:
+                    port = 143
+                self.imap = imaplib.IMAP4(host=kwargs['host'], port=port)
             except Exception as e:
                 self.fatal_error("Couldn't connect to IMAP server "
                                  "imap://%s:%d: %s" % ( kwargs['host'],
                                                         kwargs['port'], e))
-
 
         if 'dry_run' in kwargs and kwargs['dry_run'] is True:
             self._mail_class = DryRunImap
@@ -88,11 +91,12 @@ class ImapProcessor(MailProcessor):
         except self.imap.error as e:
             self.fatal_imap_error("Login to IMAP server", e)
 
-        try:
-            _, namespace_data = self.imap.namespace()
-        except self.imap.error as e:
-            self.fatal_error("Couldn't retrieve name space separator for "
-                              "IMAP server: %s", e)
+        if 'NAMESPACE' in self.imap.capabilities and not kwargs['separator']:
+            try:
+                _, namespace_data = self.imap.namespace()
+            except self.imap.error as e:
+                self.fatal_error("Couldn't retrieve name space separator for "
+                                  "IMAP server: %s" % e)
 
         p = re.compile('\(\("(.*)" "(.*)"')
         self.prefix = p.match(namespace_data[0].decode('ascii')).group(1)
