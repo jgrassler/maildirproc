@@ -62,7 +62,7 @@ class ImapMail(MailBase):
         folder may either be a string or a list of path components (a list will
         be joined by the IMAP server's separator character).
         """
-        folder = self._processor.list_path(folder)
+        folder = self._processor.list_path(folder, sep=self._processor.separator)
         self._processor.log("==> Copying {0} to {1}".format(self.uid, folder))
         try:
             status, data = self._processor.imap.uid('copy', self.uid, folder)
@@ -173,7 +173,7 @@ class ImapMail(MailBase):
         folder may either be a string or a list of path components (a list will
         be joined by the IMAP server's separator character).
         """
-        folder = self._processor.list_path(folder)
+        folder = self._processor.list_path(folder, sep=self._processor.separator)
         self._processor.log("==> Moving UID {0} to {1}".format(self.uid, folder))
         self.copy(folder, create)
         self.delete()

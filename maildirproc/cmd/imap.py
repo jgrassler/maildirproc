@@ -163,6 +163,13 @@ def main():
         help="IMAP port to use. Defaults to 143 if --use-ssl is not specified "
               "and 993 if it is.")
     parser.add_option(
+        "-F",
+        "--folder-separator",
+        type="string",
+        default=".",
+        metavar="SEP",
+        help="Separate IMAP folder names by SEP")
+    parser.add_option(
         "-u",
         "--user",
         type="string",
@@ -236,8 +243,9 @@ def main():
 
     processor_kwargs["run_once"] = options.once
 
-    for opt in ("auto_reload_rcfile", "certfile", "dry_run", "folders", "host",
-                "interval", "port", "user", "use_ssl", "verbosity"):
+    for opt in ("auto_reload_rcfile", "certfile", "dry_run", "folders",
+                "folder_separator", "host", "interval", "port", "user",
+                "use_ssl", "verbosity"):
         processor_kwargs[opt] = options.__dict__[opt]
 
 

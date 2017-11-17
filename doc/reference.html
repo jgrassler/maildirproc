@@ -155,6 +155,11 @@ certificate (only relevant for IMAPS)</dd>
 <dd>Scan IMAP folders for new email every INTERVAL seconds; defaults to
 300; will be ignored if --once is specified as well</dd>
 
+<dt>-F STR --folder-separator</dt>
+<dd>Use STR as a separator for folder hierarchies. Defaults to '.' (this
+should work fine for most IMAP servers.</dd>
+</dd>
+
 <dt>-p PASSWORD PW, --interval</dt>
 <dd>Use password PW to authenticate against IMAP server; since this will
 show up in the process list, this is mainly intended for debugging. Use
@@ -248,8 +253,7 @@ created as well. This is the default behaviour.
 The <i>prefix</i> keyword argument specifies a prefix to prepend the folder
 name with. This defaults to the processors <i>prefix</i> attribute which
 is set via the --prefix command line attribute for MaildirProcessor
-instances and drawn from the server's NAMESPACE response for
-ImapProcessor instances.
+instances.
 
 </dl>
 

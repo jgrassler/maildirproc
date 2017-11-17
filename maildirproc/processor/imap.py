@@ -91,16 +91,7 @@ class ImapProcessor(MailProcessor):
         except self.imap.error as e:
             self.fatal_imap_error("Login to IMAP server", e)
 
-        if 'NAMESPACE' in self.imap.capabilities and not kwargs['separator']:
-            try:
-                _, namespace_data = self.imap.namespace()
-            except self.imap.error as e:
-                self.fatal_error("Couldn't retrieve name space separator for "
-                                  "IMAP server: %s" % e)
-
-        p = re.compile('\(\("(.*)" "(.*)"')
-        self.prefix = p.match(namespace_data[0].decode('ascii')).group(1)
-        self.separator = p.match(namespace_data[0].decode('ascii')).group(2)
+        self.separator = kwargs.get('folder_separator', '.')
 
         if kwargs['folders'] != None:
             self.set_folders(kwargs['folders'])
