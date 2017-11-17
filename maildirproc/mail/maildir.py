@@ -46,7 +46,7 @@ class MaildirMail(MailBase):
 
     def copy(self, maildir, **kwargs):
         sep = kwargs.get('sep', self._processor.separator)
-        maildir = self._processor.list_path(folder_list, sep=sep)
+        maildir = self._processor.list_path(maildir, sep=sep)
         self._processor.log("==> Copying to {0}".format(target))
         self._copy(maildir, *kwargs)
 
@@ -62,12 +62,12 @@ class MaildirMail(MailBase):
 
     def move(self, maildir, **kwargs):
         sep = kwargs.get('sep', self._processor.separator)
+        folder_list = self._processor.path_list(maildir, sep=sep)
 
         # Take care of prefix here and ensure create_folder() does not mess
         # with it.
         if self._processor.prefix != '':
             kwargs['prefix'] = ''
-            folder_list = self._processor.path_list(maildir, sep=sep)
             folder_list[0] = self._processor.prefix + folder_list[0]
 
         maildir = self._processor.list_path(maildir, sep=sep)
