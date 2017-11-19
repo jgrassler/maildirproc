@@ -248,6 +248,14 @@ def main():
                 "use_ssl", "verbosity"):
         processor_kwargs[opt] = options.__dict__[opt]
 
+    # Try to open rc file early on. Otherwise we'll process headers until we
+    # get to the point where we open the rc-file, possibly wasting a lot of
+    # time if it is missing.
+    try:
+        open(rcfile).close()
+    except IOError as e:
+        print("Error: Could not open RC file: {0}".format(e), file=sys.stderr)
+        sys.exit(1)
 
     processor = ImapProcessor(rcfile, log_fp, **processor_kwargs)
     processor.log("")
