@@ -127,6 +127,17 @@ def main():
 
     # IMAP specific options
     parser.add_option(
+        "--cache-file",
+        type="string",
+        help=("File to store header cache in. By default "
+              "~/.maildirproc/<HOST>.cache will be used, "
+              "where <HOST> is the IMAP server's host name."))
+    parser.add_option(
+        "-C",
+        "--cache-headers",
+        action="store_true",
+        help="Cache mail headers retrieved from imap_server")
+    parser.add_option(
         "-c",
         "--certfile",
         type="string",
@@ -247,6 +258,14 @@ def main():
                 "folder_separator", "host", "interval", "port", "user",
                 "use_ssl", "verbosity"):
         processor_kwargs[opt] = options.__dict__[opt]
+
+    if options.cache_headers:
+        if options.cache_file:
+            cache_file = options.cache_file
+        else:
+            cache_file = os.path.join(maildirproc_directory, 
+                                      options.host + '.cache')
+        processor_kwargs['cache_file'] = os.path.expanduser(cache_file)
 
     # Try to open rc file early on. Otherwise we'll process headers until we
     # get to the point where we open the rc-file, possibly wasting a lot of

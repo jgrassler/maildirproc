@@ -144,6 +144,16 @@ character, e.g. ["github", "jrosdahl", "maildirproc"] will become
 
 <dl class="command-line-options">
 
+<dt>-C, --cache-headers</dt>
+<dd>Whether to cache the email headers retrieved from the IMAP
+server. By default caching is disabled.</dd>
+
+<dt>--cache-file FILE</dt>
+<dd>Store the email header cache in FILE if caching is enabled. If this is not
+specified explicitly, ~/.maildirproc/<i>HOST</i>.cache will be used, where
+<i>HOST</i> is the IMAP server's host name passed set with the --host option.
+</dd>
+
 <dt>-c CERT, --certfile</dt>
 <dd>Use SSL certificate file CERT to verify IMAP server's SSL
 certificate (only relevant for IMAPS)</dd>
