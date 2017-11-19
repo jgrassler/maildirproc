@@ -27,6 +27,7 @@ from email import header as email_header
 from email import parser as email_parser
 
 from maildirproc.mail.base import MailBase
+from maildirproc import signals
 
 class ImapMail(MailBase):
     """
@@ -62,6 +63,8 @@ class ImapMail(MailBase):
         folder may either be a string or a list of path components (a list will
         be joined by the IMAP server's separator character).
         """
+        if signals.signal_received is not None:
+            self.processor.clean_exit()
         folder = self._processor.list_path(folder, sep=self._processor.separator)
         self._processor.log("==> Copying {0} to {1}".format(self.uid, folder))
         try:
@@ -87,6 +90,8 @@ class ImapMail(MailBase):
         """
         Deletes the message.
         """
+        if signals.signal_received is not None:
+            self.processor.clean_exit()
         try:
             self._processor.log("==> Deleting %s" % self.uid)
             self._processor.imap.uid('store', self.uid, '+FLAGS', '\\Deleted')
@@ -104,6 +109,8 @@ class ImapMail(MailBase):
         Forwards the message to one or more addresses. The original message
         will be deleted.
         """
+        if signals.signal_received is not None:
+            self.processor.clean_exit()
         if isinstance(addresses, basestring):
             addresses = [addresses]
         else:
@@ -173,6 +180,9 @@ class ImapMail(MailBase):
         folder may either be a string or a list of path components (a list will
         be joined by the IMAP server's separator character).
         """
+        if signals.signal_received is not None:
+            self.processor.clean_exit()
+
         folder = self._processor.list_path(folder, sep=self._processor.separator)
         self._processor.log("==> Moving UID {0} to {1}".format(self.uid, folder))
         self.copy(folder, create)

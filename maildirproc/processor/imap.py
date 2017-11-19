@@ -222,7 +222,7 @@ class ImapProcessor(MailProcessor):
                     yield message
 
             if self._run_once:
-                break
+                self.clean_exit()
             time.sleep(self.interval)
 
 
@@ -271,3 +271,14 @@ class ImapProcessor(MailProcessor):
         # STATUS ends SELECT state, so return to previously selected folder.
         self._select(self.selected)
         return (status == 'OK', data)
+
+    def clean_exit(self):
+        """
+        Close connnection and exit in a clean manner.
+        """
+
+        self.log("==> Closing IMAP connection...")
+        self.imap.close()
+        self.imap.logout()
+        self.log("==> ...done.")
+        sys.exit(1)
