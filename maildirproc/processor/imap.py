@@ -28,6 +28,8 @@ import re
 import sys
 import time
 
+from maildirproc import signals
+
 from maildirproc.util import iso_8601_now
 from maildirproc.util import safe_write
 
@@ -236,6 +238,8 @@ class ImapProcessor(MailProcessor):
         self.log("Updating header cache...")
         for folder in self.folders:
             for message in self.list_messages(folder):
+                if signals.signal_received is not None:
+                    self.clean_exit()
                 self.header_cache[folder].append(
                     self._mail_class(self, folder=folder,
                                      uid=message))
