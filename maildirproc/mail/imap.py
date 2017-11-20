@@ -36,9 +36,17 @@ class ImapMail(MailBase):
     forwarding messages. Its instances represent individual email messages.
     """
     def __init__(self, processor, **kwargs):
+        self._headers = None
+        self.message_flags = None
         self._uid = kwargs['uid']
         self._folder = kwargs['folder']
-        self.message_flags = []
+
+        if 'headers' in kwargs:
+            self._headers = kwargs['headers']
+
+        if 'flags' in kwargs:
+            self.message_flags = kwargs['flags']
+
         super(ImapMail, self).__init__(processor, **kwargs)
 
     @property
@@ -63,8 +71,16 @@ class ImapMail(MailBase):
         folder may either be a string or a list of path components (a list will
         be joined by the IMAP server's separator character).
         """
+
         if signals.signal_received is not None:
             self.processor.clean_exit()
+
+        # Make sure we have this message's folder selected (UIDs should be
+        # globally unique but may only unique in folder scope in sufficiently
+        # broken IMAP implementations).
+        if self.processor.selected != self.folder:
+            self.processor.select(self.folder)
+
         folder = self._processor.list_path(folder, sep=self._processor.separator)
         self._processor.log("==> Copying {0} to {1}".format(self.uid, folder))
         try:
@@ -90,8 +106,16 @@ class ImapMail(MailBase):
         """
         Deletes the message.
         """
+
         if signals.signal_received is not None:
             self.processor.clean_exit()
+
+        # Make sure we have this message's folder selected (UIDs should be
+        # globally unique but may only unique in folder scope in sufficiently
+        # broken IMAP implementations).
+        if self.processor.selected != self.folder:
+            self.processor.select(self.folder)
+
         try:
             self._processor.log("==> Deleting %s" % self.uid)
             self._processor.imap.uid('store', self.uid, '+FLAGS', '\\Deleted')
@@ -99,9 +123,8 @@ class ImapMail(MailBase):
         except self._processor.imap.error as e:
             # Fail hard because repeated failures here can leave a mess of
             # messages with `Deleted` flags.
-            self._processor.fatal_imap_error(
-                "Error: Could not delete message {0} {1}".format(
-                    source, target), e)
+            self._processor.fatal_imap_error("Deleting message %s'" %
+                                              self.uid, e)
             raise
 
     def forward(self, addresses, env_sender, delete=True):
@@ -109,8 +132,16 @@ class ImapMail(MailBase):
         Forwards the message to one or more addresses. The original message
         will be deleted.
         """
+
         if signals.signal_received is not None:
             self.processor.clean_exit()
+
+        # Make sure we have this message's folder selected (UIDs should be
+        # globally unique but may be on a per folder basis in sufficiently
+        # broken IMAP implementations).
+        if self.processor.selected != folder:
+            self._processor.select(self.folder)
+
         if isinstance(addresses, basestring):
             addresses = [addresses]
         else:
@@ -180,6 +211,7 @@ class ImapMail(MailBase):
         folder may either be a string or a list of path components (a list will
         be joined by the IMAP server's separator character).
         """
+
         if signals.signal_received is not None:
             self.processor.clean_exit()
 
@@ -194,6 +226,10 @@ class ImapMail(MailBase):
         headers in the email header data structure used by the user's filters.
         This method is invoked by the parent class' constructor.
         """
+
+        if not (self._headers is None and self.message_flags is None):
+            return True
+
         self._processor.log("")
         self._processor.log("New mail detected with UID {0}:".format(self.uid))
 
@@ -212,32 +248,37 @@ class ImapMail(MailBase):
 
         flags = imaplib.ParseFlags(data[0][0])
 
-        for flag in flags:
-            self.message_flags.append(flag.decode('ascii'))
+        if self.message_flags is None:
+          self.message_flags = []
+          for flag in flags:
+              self.message_flags.append(flag.decode('ascii'))
 
 
         headers = email_parser.Parser().parsestr(data[0][1].decode('ascii'),
                                                  headersonly=True)
 
-        for name in headers.keys():
-            value_parts = []
-            for header in headers.get_all(name, []):
-                try:
-                    for (s, c) in email_header.decode_header(header):
-                        # email.header.decode_header in Python 3.x may
-                        # return either [(str, None)] or [(bytes,
-                        # None), ..., (bytes, encoding)]. We must
-                        # compensate for this.
-                        if not isinstance(s, str):
-                            s = s.decode(c if c else "ascii")
-                        value_parts.append(s)
-                except (email_errors.HeaderParseError, LookupError,
-                        ValueError):
-                    self._processor.log_error(
-                        "Error: Could not decode header {0} in message "
-                        "UID {1}".format(ascii(header), self.uid))
-                    value_parts.append(header)
-            self._headers[name.lower()] = " ".join(value_parts)
+        if self._headers is None:
+          self._headers = {}
+          for name in headers.keys():
+              value_parts = []
+              for header in headers.get_all(name, []):
+                  try:
+                      for (s, c) in email_header.decode_header(header):
+                          # email.header.decode_header in Python 3.x may
+                          # return either [(str, None)] or [(bytes,
+                          # None), ..., (bytes, encoding)]. We must
+                          # compensate for this.
+                          if not isinstance(s, str):
+                              s = s.decode(c if c else "ascii")
+                          value_parts.append(s)
+                  except (email_errors.HeaderParseError, LookupError,
+                          ValueError):
+                      self._processor.log_error(
+                          "Error: Could not decode header {0} in message "
+                          "UID {1}".format(ascii(header), self.uid))
+                      value_parts.append(header)
+              self._headers[name.lower()] = " ".join(value_parts)
+
         return True
 
     # ----------------------------------------------------------------
@@ -248,6 +289,7 @@ class ImapMail(MailBase):
         message metadata to the log as this class is instantiated.
         """
         self._processor.log("UID:       {0}".format(self.uid))
+        self._processor.log("Folder:    {0}".format(self.folder))
         for name in "Message-ID Subject Date From To Cc".split():
             self._processor.log(
                 "{0:<11} {1}".format(name + ":", ascii(self[name])))

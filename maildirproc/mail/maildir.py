@@ -34,6 +34,7 @@ class MaildirMail(MailBase):
     def __init__(self, processor, **kwargs):
         self._maildir = kwargs['maildir']
         self._path = kwargs['mail_path']
+        self._headers = {}
         super(MaildirMail, self).__init__(processor, **kwargs)
 
     @property

@@ -18,7 +18,9 @@
 # 02110-1301, USA.
 
 import codecs
+import errno
 import imaplib
+import json
 import locale
 import os
 import random
@@ -46,8 +48,11 @@ class ImapProcessor(MailProcessor):
     def __init__(self, *args, **kwargs):
         super(ImapProcessor, self).__init__(*args, **kwargs)
 
-        self.header_cache={}
-        self._folders={}
+        self.cache_file = kwargs.get('cache_file', None)
+        self.header_cache = {}
+        self._folders = {}
+        self.uidvalidity = {}
+        self.selected = None
 
         self.interval = kwargs['interval']
         if kwargs['log_level'] > 2:
@@ -55,7 +60,7 @@ class ImapProcessor(MailProcessor):
 
         if kwargs['port']:
             port = kwargs['port']
-  
+
         if kwargs['use_ssl']:
             if not kwargs['port']:
                 port = 993
@@ -66,7 +71,7 @@ class ImapProcessor(MailProcessor):
                 ssl_context.load_default_certs()
 
             try:
-                self.imap = imaplib.IMAP4_SSL(host=kwargs['host'], 
+                self.imap = imaplib.IMAP4_SSL(host=kwargs['host'],
                                               port=port,
                                               ssl_context=ssl_context)
             except Exception as e:
@@ -187,7 +192,9 @@ class ImapProcessor(MailProcessor):
         """
         Lists all messages in an IMAP folder.
         """
-        self._select(folder)
+
+        self.select(folder)
+
         try:
             ret, data = self.imap.uid('search', None, "ALL")
         except self.imap.error as e:
@@ -197,6 +204,7 @@ class ImapProcessor(MailProcessor):
             self.log_imap_error("Listing messages in folder %s failed: %s" % (folder,
                                                                               ret))
             return []
+
         return data[0].decode('ascii').split()
 
 
@@ -236,6 +244,17 @@ class ImapProcessor(MailProcessor):
         processor is configured to process.
         """
         self.log("Updating header cache...")
+
+        if self.cache_file is not None:
+            self._cache_headers_file()
+        else:
+            self._cache_headers_memory()
+
+    def _cache_headers_memory(self):
+        """
+        This method creates a run time header cache that is not dumped to or
+        loaded from a cache file.
+        """
         for folder in self.folders:
             for message in self.list_messages(folder):
                 if signals.signal_received is not None:
@@ -245,11 +264,122 @@ class ImapProcessor(MailProcessor):
                                      uid=message))
         self.log("Header cache up to date.")
 
-    def _select(self, folder):
+    def _cache_headers_file(self):
         """
-        Performs an IMAP SELECT on folder in preparation for retrieving the
-        list of message UIDs in that folder.
+        This method updates the header cache from a cache file. The cache file
+        is created if it does not exist, yet.
         """
+        cache = self._load_cache()
+        for folder in self.folders:
+            uidvalidity = self._uidvalidity(folder)
+            if folder not in cache:
+                cache[folder] = {}
+                cache[folder]['uids'] = {}
+                cache[folder]['uids'] = self._initialize_cache(
+                    folder, cache[folder]['uids'])
+                cache[folder]['uidvalidity'] = uidvalidity
+                continue
+
+            if uidvalidity == cache[folder]['uidvalidity']:
+                cache[folder]['uids'] = self._update_cache(
+                    folder, cache[folder]['uids'])
+            else:
+                cache[folder]['uids'] = self._initialize_cache(
+                    folder, cache[folder]['uids'])
+                cache[folder]['uidvalidity'] = uidvalidity
+
+        self._save_cache(cache)
+
+    def _load_cache(self):
+        """
+        This method loads a previously stored header cache from the cache file.
+        """
+        try:
+            f = open(self.cache_file)
+            cache = json.load(f)
+            f.close()
+            return cache
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                return {}
+            else:
+                self.fatal_error("Couldn't load stored cache from "
+                                 "%s: %s" % (self.cache_file, e))
+        except Exception as e:
+            self.fatal_error("Couldn't load stored cache from "
+                             " %s: %s" % (self.cache_file, e))
+
+    def _save_cache(self, cache):
+        """
+        This method dumps the current state of the header cache to the cache
+        file.
+        """
+        try:
+            f = open(self.cache_file, mode='w')
+            cache = json.dump(cache, f)
+            f.close()
+        except OSError as e:
+            self.fatal_error("Couldn't save cache to "
+                             "%s: %s" % (self.cache_file, e))
+
+    def _initialize_cache(self, folder, cache):
+        """
+        This method initializes a cache data structure for a given folder.
+        """
+        for message in self.list_messages(folder):
+            if signals.signal_received is not None:
+                self.clean_exit()
+            msg_obj = self._mail_class(self, folder=folder,
+                                       uid=message)
+            cache[message] = {}
+            cache[message]['headers'] = msg_obj._headers
+            cache[message]['flags'] = msg_obj.message_flags
+            self.header_cache[folder].append(msg_obj)
+        return cache
+
+    def _update_cache(self, folder, cache):
+        """
+        This method updates an existing header cache data structure for a given
+        folder. Message UIDs that do not exist in the cache, yet, will be
+        added.
+        """
+        for message in self.list_messages(folder):
+            if signals.signal_received is not None:
+                self.clean_exit()
+            if message in cache:
+                cached_headers = cache[message]['headers']
+                cached_flags = cache[message]['flags']
+                msg_obj = self._mail_class(self, folder=folder,
+                                                 uid=message,
+                                                 headers=cached_headers,
+                                                 flags=cached_flags)
+            else:
+                msg_obj = self._mail_class(self, folder=folder,
+                                           uid=message)
+                cache[message] = {}
+                cache[message]['headers'] = msg_obj._headers
+                cache[message]['flags'] = msg_obj.message_flags
+
+            self.header_cache[folder].append(msg_obj)
+        return cache
+
+    def _uidvalidity(self, folder):
+        """
+        This message returns the IMAP UIDVALIDITY for a given folder. This
+        information is needed to determine whether the cache for a given folder
+        needs to be reinitialized.
+        """
+        if folder not in self.uidvalidity:
+            self.select(folder)
+        return self.uidvalidity[folder]
+
+    def select(self, folder):
+        """
+        Performs an IMAP SELECT on folder.
+        """
+
+        self.log("==> Selecting folder %s" % folder)
+
         try:
             status, data = self.imap.select(mailbox=folder)
         except self.imap.error as e:
@@ -258,7 +388,13 @@ class ImapProcessor(MailProcessor):
             self.fatal_error("Couldn't select folder %s: %s / %s" % (folder,
                               status, data[0].decode('ascii')))
             return False
+
+        v_string = self.imap.response('UIDVALIDITY')[1][0].decode('ascii')
+        self.uidvalidity[folder] = v_string
+
         self.selected = folder
+        self.log("==> Folder %s selected." % folder)
+
         return True
 
     def _status(self, folder):
@@ -273,7 +409,7 @@ class ImapProcessor(MailProcessor):
                              "folder %s: %s" % (folder, e))
         data = data[0].decode('ascii')
         # STATUS ends SELECT state, so return to previously selected folder.
-        self._select(self.selected)
+        self.select(self.selected)
         return (status == 'OK', data)
 
     def clean_exit(self):

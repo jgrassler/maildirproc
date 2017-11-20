@@ -31,7 +31,6 @@ class MailBase(object):
     def __init__(self, processor, **kwargs):
         self._processor = processor
         self._target = MailTarget(self)
-        self._headers = {}
         if self.parse_mail():
             self._log_processing()
 
