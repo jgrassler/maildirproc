@@ -200,7 +200,7 @@ def main():
         if not options.__dict__[opt]:
            print("Please specify --%s option." % opt, file=sys.stderr)
            bad_options = True
-    
+
     if not ( options.password or options.password_command ):
         print("Please specify either --password or --password-command.", file=sys.stderr)
         bad_options = True
@@ -263,7 +263,7 @@ def main():
         if options.cache_file:
             cache_file = options.cache_file
         else:
-            cache_file = os.path.join(maildirproc_directory, 
+            cache_file = os.path.join(maildirproc_directory,
                                       options.host + '.cache')
         processor_kwargs['cache_file'] = os.path.expanduser(cache_file)
 
